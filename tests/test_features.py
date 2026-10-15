@@ -198,7 +198,8 @@ def test_bond_principal_unit_change_is_not_a_trade():
                         "log_me": 1.0, "bm": 0.5, "mom_12_1": 0.1, "gp_at": 0.2, "asset_growth": 0.1, "beta": 1.0,
                         "ff12_code": "BusEq"}])
     rq = pl.DataFrame({"symbol": ["BOND"], "quarter": ["2026Q2"], "ret_q": [0.0]})
-    for name, df in {"positions": pl.DataFrame(rows), "stock_quarter": sq, "returns_quarterly": rq}.items():
+    positions = pl.DataFrame(rows, schema_overrides={"issuer_cik": pl.Utf8})  # all-NULL column needs a type
+    for name, df in {"positions": positions, "stock_quarter": sq, "returns_quarterly": rq}.items():
         con.register(f"{name}_df", df)
         con.execute(f"CREATE TABLE {name} AS SELECT * FROM {name}_df")
     fund_quarter.build(con)
