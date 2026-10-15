@@ -37,3 +37,15 @@ Point-in-time rule, as of a date:
 ## 2026-10-14: One firm, several filer IDs
 
 Pershing Square files under two CIKs. For 2025Q3–2026Q1 both *Pershing Square Capital Management* (1336528) and *Pershing Square Holdco / Inc.* (2026053) filed holdings reports; for 2026Q2 Capital Management filed only a 13F-NT notice and Pershing Square Inc. reported the holdings. The seed list in Milestone 0 needs to map each fund to *all* of its CIKs, and avoid double-counting quarters where both entities report the same book.
+
+## 2026-10-14: Seed list → filer IDs (`src/ingest/seed_ciks.py`, `data/reference/`)
+
+- **`data/reference/` is committed; the rest of `data/` is not.** The seed list and the reviewed CIK map are small, hand-made and can't be re-downloaded.
+- **Candidate CIKs come from the EDGAR quarterly full-index (`src/ingest/edgar_index.py`)**, 1999–2026: every 13F filing with the filer's name *at the time*. That finds old entity names a current-name search misses (SAC Capital → Point72, OZ Management → Sculptor, JGD Management → York, CNH Partners → AQR Arbitrage, Duquesne Capital → Duquesne Family Office).
+- **The fund → CIK mapping is reviewed by hand (`seed_cik_map.csv`), not automatic.** Name matching alone is wrong too often: "York" matches New York Life, "Millennium" matches Marque Millennium, "Elliott & Associates" is now an Indianapolis wealth manager. Doubtful matches were settled by comparing business addresses in the EDGAR profile; ones that still can't be confirmed are kept with `role = uncertain` and left out of the overlap flag.
+- **Only CIKs that filed at least one 13F-HR are included.** Coatue alone has ~40 fund entities that only file 13F-NT notices pointing to the manager; those carry no holdings.
+- **Roles:** `primary` (the main filer today), `predecessor` (an earlier ID that stopped when another took over), `successor` (DME Capital for Greenlight), `affiliate` (another entity of the same firm filing in parallel, including founders who file personally), `uncertain`.
+- **`multi_cik_same_quarter`** = two or more non-uncertain CIKs filed an original 13F-HR for the same report period (from `reportDate` in each EDGAR profile, not the filing date). It mixes two different situations that later milestones must treat differently:
+  - *Hand-overs* (1–4 quarters, e.g. Elliott 2020, Brave Warrior 2012): one book changing filer, possibly reported twice in the switch quarter.
+  - *Parallel filers* (e.g. Soros, Two Sigma, AQR, Millennium, Point72, Steadfast, Icahn): either separate books (Point72's regional entities) or the same book reported twice (a founder filing personally). Which one needs a holdings comparison; that's for the feature milestone, so no fund-quarter gets double-counted.
+- **`style_guess` is a weak label**, copied as given. It will be checked against hand labels in Milestone 4.

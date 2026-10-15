@@ -1,0 +1,149 @@
+fund_name,style_guess,cik,role,note,edgar_name,former_names,business_address,n_13f_hr,first_quarter,last_quarter,n_overlap_quarters,overlap_first,overlap_last,multi_cik_same_quarter
+Pershing Square Capital Management,activist,0001336528,primary,,"Pershing Square Capital Management, L.P.","","787 11TH AVENUE, NEW YORK, NY",82,2005Q4,2026Q1,4,2025Q2,2026Q1,true
+Pershing Square Capital Management,activist,0002026053,affiliate,Pershing Square Holdco / Pershing Square Inc.; reports the holdings for 2026Q2 while 1336528 filed a 13F-NT,PERSHING SQUARE INC.,"PERSHING SQUARE HOLDCO, L.P.","787 ELEVENTH AVENUE, NEW YORK, NY",5,2025Q2,2026Q2,4,2025Q2,2026Q1,true
+Elliott Investment Management,activist,0001048445,predecessor,Elliott Management Corp until 2020,ELLIOTT MANAGEMENT CORP,STONINGTON MANAGEMENT CORP,"40 WEST 57TH STREET, NEW YORK, NY",82,1999Q3,2020Q3,3,2020Q1,2020Q3,true
+Elliott Investment Management,activist,0000904495,affiliate,"Elliott Associates, L.P. (main fund entity)","ELLIOTT ASSOCIATES, L.P.",ELLIOTT ASSOCIATES LP,"360 S. ROSEMARY AVE, 18TH FLOOR, WEST PALM BEACH, FL",3,2011Q1,2011Q3,3,2020Q1,2020Q3,true
+Elliott Investment Management,activist,0001791786,primary,,Elliott Investment Management L.P.,"","360 S. ROSEMARY AVE, 18TH FLOOR, WEST PALM BEACH, FL",26,2020Q1,2026Q2,3,2020Q1,2020Q3,true
+Icahn Capital,activist,0000921669,affiliate,Carl C. Icahn files personally; likely the same book as Icahn Capital,ICAHN CARL C,ICAHN CARL C ET AL,"C/O ICAHN ENTERPRISES L.P., SUNNY ISLES BEACH, FL",102,1999Q1,2026Q2,29,2001Q3,2011Q1,true
+Icahn Capital,activist,0000881188,affiliate,Icahn & Co Inc 2000-2003,ICAHN & CO INC,"","1 WHITEHALL STREET, NEW YORK, NY",2,2000Q2,2000Q3,29,2001Q3,2011Q1,true
+Icahn Capital,activist,0001164756,affiliate,Icahn Institutional Services 2002-2003,ICAHN INSTITUTIONAL SERVICES LLC,ICAHN INSTITUTIONAL SERVICES INC,"100 SOUTH BEDFORD, MT KISCO, NY",8,2001Q3,2003Q2,29,2001Q3,2011Q1,true
+Icahn Capital,activist,0001317365,predecessor,Icahn Management LP 2005-2013,ICAHN MANAGEMENT LP,"","445 HAMILTON AVENUE, WHITE PLAINS, NY",11,2004Q4,2007Q2,29,2001Q3,2011Q1,true
+Icahn Capital,activist,0001413902,predecessor,Icahn Capital Management LP; one filing in 2007,ICAHN CAPITAL MANAGEMENT LP,"","767 FIFTH AVENUE, NEW YORK, NY",1,2007Q3,2007Q3,29,2001Q3,2011Q1,true
+Icahn Capital,activist,0001412093,primary,,ICAHN CAPITAL LP,ICAHN PARTNERS HOLDING LP,"16690 COLLINS AVE., SUNNY ISLES BEACH, FL",14,2007Q4,2011Q1,29,2001Q3,2011Q1,true
+Trian Fund Management,activist,0001345472,affiliate,Trian Fund Management GP; files alongside 1345471,"Trian Fund Management GP, LLC","","280 PARK AVENUE, NEW YORK, NY",14,2006Q3,2010Q4,18,2006Q3,2010Q4,true
+Trian Fund Management,activist,0001345469,affiliate,Trian Partners Parallel Fund I GP 2006-2011,"Trian Partners Parallel Fund I General Partner, LLC","","280 PARK AVENUE, NEW YORK, NY",18,2006Q3,2010Q4,18,2006Q3,2010Q4,true
+Trian Fund Management,activist,0001363625,affiliate,Trian Partners Parallel Fund II GP 2006-2009,"Trian Partners Parallel Fund II General Partner, LLC","","280 PARK AVENUE, 41ST FLOOR, NEW YORK, NY",13,2006Q3,2009Q3,18,2006Q3,2010Q4,true
+Trian Fund Management,activist,0001345464,affiliate,Trian Partners GP 2006-2011,"Trian Partners General Partner, LLC","","280 PARK AVENUE, NEW YORK, NY",17,2006Q4,2010Q4,18,2006Q3,2010Q4,true
+Trian Fund Management,activist,0001475898,affiliate,Trian Credit Partners GP 2009-2011,Trian Credit Partners General Partner LLC,"","280 PARK AVENUE, NEW YORK, NY",6,2009Q3,2010Q4,18,2006Q3,2010Q4,true
+Trian Fund Management,activist,0001498042,affiliate,Trian Partners Strategic Investment Fund GP 2010-2011,"Trian Partners Strategic Investment Fund General Partner, LLC","","280 PARK AVENUE, 41ST FLOOR, NEW YORK, NY",2,2010Q3,2010Q4,18,2006Q3,2010Q4,true
+Trian Fund Management,activist,0001345471,primary,,"TRIAN FUND MANAGEMENT, L.P.","","280 PARK AVENUE, NEW YORK, NY",62,2011Q1,2026Q2,18,2006Q3,2010Q4,true
+Third Point,activist,0001040273,primary,Third Point Management Co until 2004,Third Point LLC,THIRD POINT MANAGEMENT CO LLC,"55 HUDSON YARDS, NEW YORK, NY",109,1999Q2,2026Q2,0,,,false
+ValueAct Capital,activist,0001351069,affiliate,ValueAct Capital Management,"ValueAct Capital Management, L.P.","","ONE LETTERMAN DRIVE, SAN FRANCISCO, CA",6,2006Q3,2007Q4,17,2007Q4,2012Q2,true
+ValueAct Capital,activist,0001395267,affiliate,ValueAct SmallCap Management 2008-2012,"ValueAct SmallCap Management, L.P.","","435 PACIFIC AVENUE, SAN FRANCISCO, CA",18,2007Q4,2012Q2,17,2007Q4,2012Q2,true
+ValueAct Capital,activist,0001418814,primary,ValueAct Holdings,"ValueAct Holdings, L.P.","","ONE LETTERMAN DRIVE, SAN FRANCISCO, CA",73,2008Q2,2026Q2,17,2007Q4,2012Q2,true
+Starboard Value,activist,0001517137,primary,,Starboard Value LP,"","777 THIRD AVENUE, 18TH FLOOR, NEW YORK, NY",61,2011Q2,2026Q2,0,,,false
+Jana Partners,activist,0001159159,predecessor,JANA Partners LLC until 2023,JANA PARTNERS LLC,"","767 FIFTH AVENUE, NEW YORK, NY",83,2002Q4,2023Q2,0,,,false
+Jana Partners,activist,0001998597,primary,,"JANA Partners Management, LP","","888 SEVENTH AVENUE, NEW YORK, NY",12,2023Q3,2026Q2,0,,,false
+Corvex Management,activist,0001535472,primary,,Corvex Management LP,"","667 MADISON AVENUE, NEW YORK, NY",59,2011Q4,2026Q2,0,,,false
+Sachem Head Capital Management,activist,0001582090,primary,,Sachem Head Capital Management LP,"","250 WEST 55TH STREET, NEW YORK, NY",51,2013Q4,2026Q2,0,,,false
+Engaged Capital,activist,0001559771,primary,,Engaged Capital LLC,"","610 NEWPORT CENTER DRIVE, NEWPORT BEACH, CA",51,2013Q4,2026Q2,0,,,false
+Ancora Advisors,activist,0001446114,primary,,Ancora Advisors LLC,"Ancora Advisors, LLC","6060 PARKLAND BOULEVARD, SUITE 200, CLEVELAND, OH",72,2008Q3,2026Q2,5,2015Q3,2016Q3,true
+Ancora Advisors,activist,0001657660,affiliate,Ancora Inverness / Ancora Private Wealth; same Cleveland address; wealth arm,"ANCORA PRIVATE WEALTH ADVISORS, LLC","ANCORA FAMILY WEALTH ADVISORS, LLC; Ancora Inverness LLC; Ancora Inverness, LLC; Inverness Investment Group, LLC","6060 PARKLAND, CLEVELAND, OH",5,2015Q3,2016Q3,5,2015Q3,2016Q3,true
+Mantle Ridge,activist,0001695459,primary,,Mantle Ridge LP,"","712 FIFTH AVENUE, SUITE 17F, NEW YORK, NY",35,2017Q4,2026Q2,0,,,false
+Land & Buildings Investment Management,activist,0001536520,primary,,"Land & Buildings Investment Management, LLC","","SOUNDVIEW PLAZA, STAMFORD, CT",59,2011Q4,2026Q2,0,,,false
+Legion Partners,activist,0001560207,primary,,"Legion Partners Asset Management, LLC","","12121 WILSHIRE BLVD., SUITE 1240, LOS ANGELES, CA",39,2016Q4,2026Q2,0,,,false
+Tiger Global Management,growth_tech,0001167483,primary,,TIGER GLOBAL MANAGEMENT LLC,TIGER TECHNOLOGY MANAGEMENT LLC; TIGER TECHNOLOGY MANAGEMENT,"9 WEST 57TH STREET, NEW YORK, NY",100,2001Q4,2026Q2,0,,,false
+Coatue Management,growth_tech,0001135730,primary,,COATUE MANAGEMENT LLC,"","9 WEST 57TH STREET, NEW YORK, NY",93,2000Q4,2026Q2,0,,,false
+Viking Global Investors,growth_tech,0001103804,primary,,VIKING GLOBAL INVESTORS LP,"","600 WASHINGTON BLVD., STAMFORD, CT",101,1999Q4,2026Q2,0,,,false
+Viking Global Investors,growth_tech,0001101785,affiliate,Viking Global Equities LP 2001-2002,Viking Global Equities LP,"","600 WASHINGTON BOULEVARD, STAMFORD, CT",6,2001Q2,2002Q3,0,,,false
+Lone Pine Capital,growth_tech,0001061165,primary,,LONE PINE CAPITAL LLC,"","TWO GREENWICH PLZ, GREENWICH, CT",87,2004Q4,2026Q2,0,,,false
+Maverick Capital,growth_tech,0000934639,primary,,MAVERICK CAPITAL LTD,"","1900 N. PEARL STREET, DALLAS, TX",104,1999Q1,2026Q2,0,,,false
+Maverick Capital,growth_tech,0000928617,affiliate,Maverick Capital Ltd /ADV 1999-2002,MAVERICK CAPITAL LTD /ADV,"","300 CRESCENT CT, DALLAS, TX",6,1999Q3,2002Q1,0,,,false
+D1 Capital Partners,growth_tech,0001747057,primary,,D1 Capital Partners L.P.,"","9 WEST 57TH STREET, NEW YORK, NY",31,2018Q4,2026Q2,0,,,false
+Light Street Capital,growth_tech,0001569049,primary,,"LIGHT STREET CAPITAL MANAGEMENT, LLC","","505 HAMILTON AVENUE, PALO ALTO, CA",55,2012Q4,2026Q2,0,,,false
+Whale Rock Capital Management,growth_tech,0001387322,primary,,Whale Rock Capital Management LLC,"","2 INTERNATIONAL PLACE, 24TH FLOOR, BOSTON, MA",79,2006Q4,2026Q2,0,,,false
+Altimeter Capital Management,growth_tech,0001541617,primary,,"Altimeter Capital Management, LP","Altimeter Capital Management, LLC","2550 SAND HILL RD, MENLO PARK, CA",59,2011Q4,2026Q2,0,,,false
+Dragoneer Investment Group,growth_tech,0001602189,primary,,"Dragoneer Investment Group, LLC","","ONE LETTERMAN DRIVE, SAN FRANCISCO, CA",47,2014Q4,2026Q2,0,,,false
+Durable Capital Partners,growth_tech,0001798849,primary,,Durable Capital Partners LP,"","4747 BETHESDA AVENUE, BETHESDA, MD",27,2019Q4,2026Q2,0,,,false
+Hound Partners,growth_tech,0001353316,primary,,"Hound Partners, LLC","","90 PARK AVENUE, NEW YORK, NY",83,2005Q4,2026Q2,1,2009Q4,2009Q4,true
+Hound Partners,growth_tech,0001328137,affiliate,Hound Partners LP 2010-2011,Hound Partners LP,Hound Partners L P,"HOUND PARTNERS, LLC, NEW YORK, NY",1,2009Q4,2009Q4,1,2009Q4,2009Q4,true
+Tybourne Capital,growth_tech,0001553936,primary,Tybourne Capital Management (HK),TYBOURNE CAPITAL MANAGEMENT (HK) LTD,TYBOURNE CAPITAL MANAGEMENT HK LTD,"SUITES 818-822, 8/F, BANK OF AMERICA, HONG KONG, K3",52,2012Q4,2025Q3,0,,,false
+Steadfast Capital Management,growth_tech,0001214822,primary,,STEADFAST CAPITAL MANAGEMENT LP,STEADFAST CAPITAL MANAGEMENT LLC,"450 PARK AVENUE, NEW YORK, NY",95,2002Q4,2026Q2,60,2002Q4,2022Q2,true
+Steadfast Capital Management,growth_tech,0001213310,affiliate,Steadfast Advisors; same New York address,STEADFAST ADVISORS LP,STEADFAST ADVISORS LLC,"450 PARK AVENUE, NEW YORK, NY",57,2002Q4,2016Q4,60,2002Q4,2022Q2,true
+Steadfast Capital Management,growth_tech,0001872297,affiliate,Steadfast Capital Management (UK) 2021-2022,Steadfast Capital Management (UK) Ltd.,"","29 FARM STREET, LONDON, X0",4,2021Q3,2022Q2,60,2002Q4,2022Q2,true
+Glenview Capital Management,growth_tech,0001138995,primary,,"GLENVIEW CAPITAL MANAGEMENT, LLC",GLENVIEW CAPITAL MANAGEMENT LLC,"520 MADISON AVENUE, NEW YORK, NY",99,2001Q4,2026Q2,0,,,false
+Suvretta Capital Management,growth_tech,0001569064,primary,,"MONTANOVA CAPITAL, LLC","SUVRETTA CAPITAL MANAGEMENT, LLC","11 E 26TH STREET, NEW YORK, NY",51,2013Q4,2026Q2,0,,,false
+Atreides Management,growth_tech,0001777813,primary,,"Atreides Management, LP","","ONE INTERNATIONAL PLACE, BOSTON, MA",27,2019Q4,2026Q2,0,,,false
+Greenoaks Capital,growth_tech,0001840735,primary,,GREENOAKS LLC,GREENOAKS CAPITAL PARTNERS LLC,"1 LETTERMAN DRIVE, SAN FRANCISCO, CA",23,2020Q4,2026Q2,0,,,false
+Baupost Group,value_concentrated,0001061768,primary,,BAUPOST GROUP LLC/MA,"","10 ST JAMES AVE, BOSTON, MA",105,1999Q1,2026Q2,0,,,false
+Baupost Group,value_concentrated,0001054420,affiliate,Baupost Group LLC /ADV 2001-2002,BAUPOST GROUP LLC /ADV,"","P O BOX 389125, CAMBRIDGE, MA",5,2001Q1,2002Q1,0,,,false
+Berkshire Hathaway,value_concentrated,0001067983,primary,,BERKSHIRE HATHAWAY INC,NBH INC,"3555 FARNAM STREET, OMAHA, NE",111,1998Q4,2026Q2,0,,,false
+Appaloosa Management,value_concentrated,0001006438,predecessor,Appaloosa Management LP until 2016,APPALOOSA MANAGEMENT LP,"","404 WASHINGTON AVENUE, MIAMI BEACH, FL",68,1999Q1,2015Q4,0,,,false
+Appaloosa Management,value_concentrated,0001656456,primary,Appaloosa LP from 2016,Appaloosa LP,"","51 JOHN F. KENNEDY PKWY, SHORT HILLS, NJ",42,2016Q1,2026Q2,0,,,false
+Greenlight Capital,value_concentrated,0001079114,primary,,GREENLIGHT CAPITAL INC,"","140 EAST 45TH STREET, NEW YORK, NY",100,1999Q1,2023Q4,0,,,false
+Greenlight Capital,value_concentrated,0001489933,successor,DME Capital Management (David M. Einhorn); same address; Greenlight Capital Inc stopped filing 13F-HR in 2024,"DME Capital Management, LP","","140 EAST 45TH STREET, NEW YORK, NY",10,2024Q1,2026Q2,0,,,false
+Fairholme Capital Management,value_concentrated,0001056831,primary,,FAIRHOLME CAPITAL MANAGEMENT LLC,"","5966 S DIXIE HWY, SOUTH MIAMI, FL",110,1999Q1,2026Q2,0,,,false
+Himalaya Capital Management,value_concentrated,0001709323,primary,,Himalaya Capital Management LLC,"","1301 2ND AVENUE, SEATTLE, WA",35,2016Q4,2026Q2,0,,,false
+Scion Asset Management,value_concentrated,0001182422,predecessor,Scion Capital LLC 2005-2009,SCION CAPITAL LLC,"","20400 STEVENS CREEK BLVD., CUPERTINO, CA",17,2004Q4,2008Q4,0,,,false
+Scion Asset Management,value_concentrated,0001649339,primary,,"Scion Asset Management, LLC","","20665 4TH STREET, SARATOGA, CA",32,2015Q4,2025Q3,0,,,false
+Abrams Bison Investments,value_concentrated,0001317588,primary,"Bethesda, MD. Not Abrams Capital Management (David Abrams, Boston, CIKs 1358706 / 1426355); check which one was intended","ABRAMS BISON INVESTMENTS, LLC","","3 BETHESDA METRO CENTER, BETHESDA, MD",87,2004Q4,2026Q2,0,,,false
+Brave Warrior Advisors,value_concentrated,0000789920,predecessor,Brave Warrior Capital until 2012,"BRAVE WARRIOR CAPITAL, INC.","CHIEFTAIN CAPITAL MANAGEMENT, INC.; CHIEFTAIN CAPITAL MANAGEMENT INC","12 EAST 49TH ST, NEW YORK, NY",53,1999Q1,2012Q1,1,2012Q1,2012Q1,true
+Brave Warrior Advisors,value_concentrated,0001553733,primary,,"Brave Warrior Advisors, LLC","","12 EAST 49 STREET, 31ST FLOOR, NEW YORK, NY",58,2012Q1,2026Q2,1,2012Q1,2012Q1,true
+Gotham Asset Management,value_concentrated,0001279148,uncertain,Gotham Asset Management LP 2006-2009 at 535 Madison Ave; not confirmed as Greenblatt's Gotham,GOTHAM ASSET MANAGEMENT LP,"","535 MADISON AVENUE, NEW YORK, NY",16,2005Q4,2009Q3,0,,,false
+Gotham Asset Management,value_concentrated,0001352839,uncertain,Gotham Select Fund Management LP 2006-2009 at 535 Madison Ave; not confirmed,Gotham Select Fund Management LP,"","535 MADISON AVENUE, NEW YORK, NY",13,2005Q4,2008Q4,0,,,false
+Gotham Asset Management,value_concentrated,0001352421,uncertain,Gotham Select Fund GP 2006 at 520 Madison Ave; not confirmed,Gotham Select Fund GP LLC,"","520 MADISON AVENUE, 35TH FLOOR, NEW YORK, NY",2,2006Q1,2006Q2,0,,,false
+Gotham Asset Management,value_concentrated,0001510387,primary,,"Gotham Asset Management, LLC","","825 THIRD AVENUE, SUITE 1750, NEW YORK, NY",63,2010Q4,2026Q2,0,,,false
+Egerton Capital,value_concentrated,0001083657,predecessor,Egerton Capital Ltd until 2013,EGERTON CAPITAL LTD,"","STRATTON HOUSE, LONDON, X0",55,1998Q4,2013Q2,0,,,false
+Egerton Capital,value_concentrated,0001581811,primary,Egerton Capital (UK) LLP,Egerton Capital (UK) LLP,"","STRATTON HOUSE, LONDON, X0",52,2013Q3,2026Q2,0,,,false
+Duquesne Family Office,discretionary_other,0001008925,predecessor,Duquesne Capital Management until 2011,DUQUESNE CAPITAL MANAGEMENT L L C,"","2579 WASHINGTON ROAD, PITTSBURGH, PA",39,1999Q1,2010Q4,0,,,false
+Duquesne Family Office,discretionary_other,0001536411,primary,,Duquesne Family Office LLC,"","40 WEST 57TH STREET, 25TH FLOOR, NEW YORK, NY",59,2011Q4,2026Q2,0,,,false
+Soros Fund Management,discretionary_other,0001029160,primary,,SOROS FUND MANAGEMENT LLC,"","250 WEST 55TH STREET, FLOOR 29, NEW YORK, NY",111,1998Q1,2026Q2,64,2002Q4,2026Q2,true
+Soros Fund Management,discretionary_other,0000900203,affiliate,George Soros files personally; likely overlaps the firm's book,SOROS GEORGE,"","",37,2002Q4,2011Q4,64,2002Q4,2026Q2,true
+Soros Fund Management,discretionary_other,0001748240,affiliate,Soros Capital Management; same address,SOROS CAPITAL MANAGEMENT LLC,"","250 WEST 55TH STREET, NEW YORK, NY",27,2019Q4,2026Q2,64,2002Q4,2026Q2,true
+Tudor Investment Corp,discretionary_other,0000923093,primary,,TUDOR INVESTMENT CORP ET AL,"","200 ELM STREET, STAMFORD, CT",110,1999Q1,2026Q2,1,2003Q3,2003Q3,true
+Tudor Investment Corp,discretionary_other,0000861895,affiliate,Tudor Fund for Employees; two filings in 2003,TUDOR FUND FOR EMPLOYEES LP,"","1275 KING STREET, GREENWICH, CT",1,2003Q3,2003Q3,1,2003Q3,2003Q3,true
+Bridgewater Associates,discretionary_other,0001350694,primary,,"Bridgewater Associates, LP","Bridgewater Associates, Inc.","ONE NYALA FARMS ROAD, WESTPORT, CT",83,2005Q4,2026Q2,0,,,false
+Magnetar Capital,event_driven,0001352851,primary,Magnetar Financial,Magnetar Financial LLC,"","1603 ORRINGTON AVE., EVANSTON, IL",83,2005Q4,2026Q2,16,2005Q4,2009Q3,true
+Magnetar Capital,event_driven,0001352849,affiliate,Magnetar Investment Management 2006-2009,"Magnetar Investment Management, LLC","","1603 ORRINGTON AVE., EVANSTON, IL",16,2005Q4,2009Q3,16,2005Q4,2009Q3,true
+Glazer Capital,event_driven,0001076809,primary,,"GLAZER CAPITAL, LLC",GLAZER CAPITAL MANAGEMENT LP,"250 WEST 55TH STREET, NEW YORK, NY",83,2005Q4,2026Q2,0,,,false
+Westchester Capital Management,event_driven,0000938773,predecessor,Westchester Capital Management Inc /NY/ until 2011; same Valhalla address,WESTCHESTER CAPITAL MANAGEMENT INC /NY/,"","100 SUMMIT LAKE DRIVE, VALHALLA, NY",48,1999Q1,2010Q4,1,2010Q4,2010Q4,true
+Westchester Capital Management,event_driven,0001512805,primary,"Valhalla, NY (merger arbitrage)","Westchester Capital Management, LLC","Westchester Capital Management, LLC","100 SUMMIT LAKE DRIVE, VALHALLA, NY",63,2010Q4,2026Q2,1,2010Q4,2010Q4,true
+Water Island Capital,event_driven,0001222765,primary,,WATER ISLAND CAPITAL LLC,"","104 5TH AVENUE, NEW YORK, NY",91,2003Q4,2026Q2,0,,,false
+Davidson Kempner Capital Management,event_driven,0000937617,predecessor,Davidson Kempner Capital Management LLC until 2014,DAVIDSON KEMPNER CAPITAL MANAGEMENT LLC,DAVIDSON M H & CO LLC /NY/; DAVIDSON M H & CO INC/,"65 EAST 55TH STREET, 19TH FLOOR, NEW YORK, NY",63,1999Q1,2014Q3,4,2014Q1,2023Q1,true
+Davidson Kempner Capital Management,event_driven,0001595082,primary,,DAVIDSON KEMPNER CAPITAL MANAGEMENT LP,"","9 WEST 57TH STREET, NEW YORK, NY",50,2014Q1,2026Q2,4,2014Q1,2023Q1,true
+Davidson Kempner Capital Management,event_driven,0000928549,affiliate,Davidson Kempner Partners; one filing in 2023,DAVIDSON KEMPNER PARTNERS,"","C/O MHD MANAGEMENT CO., NEW YORK, NY",1,2023Q1,2023Q1,4,2014Q1,2023Q1,true
+Farallon Capital Management,event_driven,0000909661,primary,,"FARALLON CAPITAL MANAGEMENT, L.L.C.",FARALLON CAPITAL MANAGEMENT LLC,"ONE MARITIME PLAZA, SAN FRANCISCO, CA",110,1999Q1,2026Q2,0,,,false
+Canyon Capital Advisors,event_driven,0001074034,primary,,CANYON CAPITAL ADVISORS LLC,"","2728 NORTH HARWOOD STREET, 2ND FLOOR, DALLAS, TX",105,1999Q1,2026Q2,1,1999Q1,1999Q1,true
+Canyon Capital Advisors,event_driven,0001056544,affiliate,Canyon Value Realization Fund (Cayman); one filing,"Canyon Value Realization Fund (Cayman), Ltd.",CANYON VALUE REALIZATION FUND CAYMAN LTD,"FORTIS PRIME FUND SOL., PO BOX 2003GT, GRAND CAYMAN, E9",1,1999Q1,1999Q1,1,1999Q1,1999Q1,true
+Canyon Capital Advisors,event_driven,0001062244,affiliate,Canyon Capital Advisors /ADV 2001-2002,CANYON CAPITAL ADVISORS LLC /ADV,"","9665 WILSHIRE BLVD, BEVERLY HILLS, CA",4,2001Q1,2001Q4,1,1999Q1,1999Q1,true
+Taconic Capital Advisors,event_driven,0001106369,predecessor,Taconic Capital Advisors LLC until 2007,TACONIC CAPITAL ADVISORS LLC,"","450 PARK AVENUE, NEW YORK, NY",30,1999Q4,2007Q1,18,2002Q4,2007Q1,true
+Taconic Capital Advisors,event_driven,0001212350,affiliate,Taconic Offshore / Taconic Capital Management 2003-2007,TACONIC CAPITAL MANAGEMENT LLC,TACONIC OFFSHORE MANAGEMENT LLC; TACONIC OFFSHORE FUND LTD,"450 PARK AVE, NEW YORK, NY",17,2002Q4,2006Q4,18,2002Q4,2007Q1,true
+Taconic Capital Advisors,event_driven,0001390113,primary,,Taconic Capital Advisors LP,"","280 PARK AVENUE, 5TH FLOOR, NEW YORK, NY",78,2007Q1,2026Q2,18,2002Q4,2007Q1,true
+York Capital Management,event_driven,0001012670,predecessor,JGD Management Corp until 2010,JGD MANAGEMENT CORP /NY,"","767 FIFTH AVENUE, 17TH FLOOR, NEW YORK, NY",41,1999Q1,2010Q3,0,,,false
+York Capital Management,event_driven,0001480532,primary,York Capital Management Global Advisors,"York Capital Management Global Advisors, LLC","","1330 AVENUE OF THE AMERICAS, NEW YORK, NY",60,2010Q4,2025Q3,0,,,false
+York Capital Management,event_driven,0001289994,uncertain,"York GP, Ltd. (Cayman registered-office address) 2023-2026; not confirmed","York GP, Ltd.","","UGLAND HOUSE, GRAND CAYMAN, E9",11,2023Q1,2026Q2,0,,,false
+Pentwater Capital Management,event_driven,0001425851,primary,,Pentwater Capital Management LP,"","1001 10TH AVENUE SOUTH, NAPLES, FL",75,2007Q4,2026Q2,0,,,false
+HBK Investments,event_driven,0001011443,primary,,HBK INVESTMENTS L P,"","2300 NORTH FIELD STREET, DALLAS, TX",109,1999Q1,2026Q2,0,,,false
+Sculptor Capital Management,event_driven,0001056518,predecessor,OZ Management LLC /NY/ 1999-2001,OZ MANAGEMENT LLC /NY/,"","9 WEST 57TH STREET, NEW YORK, NY",9,1999Q1,2001Q1,0,,,false
+Sculptor Capital Management,event_driven,0001054587,primary,OZ Management (Och-Ziff) until renamed Sculptor in 2019,Sculptor Capital LP,OZ MANAGEMENT LP; OZ MANAGEMENT LLC,"9 WEST 57TH STREET, NEW YORK, NY",101,2001Q2,2026Q2,0,,,false
+Renaissance Technologies,quant,0001037389,primary,,RENAISSANCE TECHNOLOGIES LLC,RENAISSANCE TECHNOLOGIES CORP,"520 MADISON AVENUE, NEW YORK, NY",110,1999Q1,2026Q2,0,,,false
+Two Sigma Investments,quant,0001179392,primary,,"TWO SIGMA INVESTMENTS, LP",TWO SIGMA INVESTMENTS LLC,"100 AVENUE OF THE AMERICAS, NEW YORK, NY",95,2002Q4,2026Q2,64,2004Q1,2026Q2,true
+Two Sigma Investments,quant,0001280134,affiliate,Two Sigma Equity Portfolio,"TWO SIGMA EQUITY PORTFOLIO, LLC",TWO SIGMA EQUITY PORTFOLIO LLC,"C/O TWO SIGMA INVESTMENTS, LP, NEW YORK, NY",1,2004Q1,2004Q1,64,2004Q1,2026Q2,true
+Two Sigma Investments,quant,0001478735,affiliate,Two Sigma Advisers,"TWO SIGMA ADVISERS, LP","TWO SIGMA ADVISERS, LLC","100 AVENUE OF THE AMERICAS, NEW YORK, NY",63,2010Q4,2026Q2,64,2004Q1,2026Q2,true
+Two Sigma Investments,quant,0001450144,affiliate,Two Sigma Securities (broker-dealer / market making),"TWO SIGMA SECURITIES, LLC","","100 AVENUE OF THE AMERICAS, NEW YORK, NY",47,2014Q4,2026Q2,64,2004Q1,2026Q2,true
+Two Sigma Investments,quant,0001878979,affiliate,Two Sigma Ventures 2022,"Two Sigma Ventures, LP","","100 AVENUE OF THE AMERICAS, NEW YORK, NY",4,2021Q4,2022Q3,64,2004Q1,2026Q2,true
+D. E. Shaw & Co.,quant,0001009207,primary,,"D. E. Shaw & Co., Inc.",SHAW D E & CO INC,"TWO MANHATTAN WEST, NEW YORK, NY",109,1999Q1,2026Q2,1,2005Q4,2005Q4,true
+D. E. Shaw & Co.,quant,0001335794,affiliate,D. E. Shaw Investment Management,"D. E. Shaw Investment Management, L.L.C.","","TWO MANHATTAN WEST, NEW YORK, NY",1,2005Q4,2005Q4,1,2005Q4,2005Q4,true
+AQR Capital Management,quant,0001167557,primary,,AQR CAPITAL MANAGEMENT LLC,"","ONE GREENWICH PLAZA, GREENWICH, CT",99,2001Q4,2026Q2,69,2007Q1,2026Q2,true
+AQR Capital Management,quant,0001167456,affiliate,AQR Arbitrage (formerly CNH Partners: AQR's merger-arbitrage unit),AQR Arbitrage LLC,CNH PARTNERS LLC,"ONE GREENWICH PLAZA, GREENWICH, CT",69,2007Q1,2026Q2,69,2007Q1,2026Q2,true
+Citadel Advisors,multi_manager,0000931939,predecessor,Citadel Limited Partnership 1999-2002,CITADEL LIMITED PARTNERSHIP,CITADEL INVESTMENT MANAGEMENT LP /ADV,"225 WEST WASHINGTON ST, CHICAGO, IL",17,1998Q1,2002Q1,0,,,false
+Citadel Advisors,multi_manager,0001027745,predecessor,Citadel LP 2002-2010,CITADEL L P,"","131 S. DEARBORN STREET, 32ND FLOOR, CHICAGO, IL",30,2002Q2,2009Q3,0,,,false
+Citadel Advisors,multi_manager,0001423053,primary,,CITADEL ADVISORS LLC,"","830 BRICKELL PLAZA, MIAMI, FL",67,2009Q4,2026Q2,0,,,false
+Millennium Management,multi_manager,0000851909,predecessor,Millennium Partners LP 2001-2007,"MILLENNIUM PARTNERS, L.P.",MILLENNIUM PARTNERS L P,"C/O MILLENNIUM MANAGEMENT, L.L.C., NEW YORK, NY",23,2000Q4,2006Q3,41,2007Q4,2026Q2,true
+Millennium Management,multi_manager,0001273087,primary,,MILLENNIUM MANAGEMENT LLC,"MILLENNIUM MANAGEMENT, L.L.C.","399 PARK AVENUE, NEW YORK, NY",80,2003Q4,2026Q2,41,2007Q4,2026Q2,true
+Millennium Management,multi_manager,0001426817,affiliate,Millennium Capital Partners LLP (London) 2008-2009,MILLENNIUM CAPITAL PARTNERS LLP,"","50 BERKELEY STREET, LONDON, X0",8,2007Q4,2009Q3,41,2007Q4,2026Q2,true
+Millennium Management,multi_manager,0001745981,affiliate,WorldQuant Millennium Advisors; same address as Millennium,WORLDQUANT MILLENNIUM ADVISORS LLC,WORLDQUANT MILLENNIUM QUANTITATIVE STRATEGIES LLC,"399 PARK AVENUE, NEW YORK, NY",33,2018Q2,2026Q2,41,2007Q4,2026Q2,true
+Point72 Asset Management,multi_manager,0001018103,predecessor,SAC Capital Advisors LLC 1999-2009,SAC CAPITAL ADVISORS LLC,"","72 CUMMINGS POINT ROAD, STAMFORD, CT",43,1999Q1,2009Q3,57,1999Q1,2026Q2,true
+Point72 Asset Management,multi_manager,0001015076,predecessor,S A C Capital Management LLC 1999-2009,S A C CAPITAL MANAGEMENT L L C,"","C/O 72 CUMMINGS POINT ROAD, STAMFORD, CT",7,1999Q1,2009Q3,57,1999Q1,2026Q2,true
+Point72 Asset Management,multi_manager,0000933279,predecessor,S A C Capital Management LP 1999,S A C CAPITAL MANAGEMENT L P,"","777 LOND RIDGE ROAD, STAMFORD, CT",2,1999Q1,1999Q2,57,1999Q1,2026Q2,true
+Point72 Asset Management,multi_manager,0001451928,predecessor,SAC Capital Advisors LP 2009-2015,SAC Capital Advisors LP,"","72 CUMMINGS POINT ROAD, STAMFORD, CT",27,2009Q1,2015Q3,57,1999Q1,2026Q2,true
+Point72 Asset Management,multi_manager,0001599822,affiliate,Point72 Hong Kong (S.A.C. Capital Advisors Hong Kong in 2014),Point72 Hong Kong Ltd,Point72 Asia (Hong Kong) Ltd; S.A.C. Capital Advisors (Hong Kong) Ltd.,"SUITES 1102-1110, 11TH FL. AND 12TH FL., HONG KONG, K3",48,2013Q4,2025Q3,57,1999Q1,2026Q2,true
+Point72 Asset Management,multi_manager,0001603466,primary,,"Point72 Asset Management, L.P.","","72 CUMMINGS POINT ROAD, STAMFORD, CT",49,2014Q2,2026Q2,57,1999Q1,2026Q2,true
+Point72 Asset Management,multi_manager,0001666791,affiliate,Point72 Asia (Singapore),Point72 Asia (Singapore) Pte. Ltd.,"","50 COLLYER QUAY, OUE BAYFRONT, #08-03, SINGAPORE",20,2015Q4,2025Q3,57,1999Q1,2026Q2,true
+Point72 Asset Management,multi_manager,0001698051,affiliate,Point72 Europe (London),Point72 Europe (London) LLP,"","8 ST JAMES'S SQUARE, LONDON, X0",36,2016Q4,2025Q3,57,1999Q1,2026Q2,true
+Point72 Asset Management,multi_manager,0001949771,affiliate,Point72 Middle East,Point72 Middle East FZE,"","ONE CENTRAL, DUBAI WORLD TRADE CENTRE, DUBAI, C0",12,2022Q4,2025Q3,57,1999Q1,2026Q2,true
+Point72 Asset Management,multi_manager,0001954961,affiliate,Point72 Private Investments,"Point72 Private Investments, LLC","","72 CUMMINGS POINT ROAD, STAMFORD, CT",11,2022Q4,2026Q2,57,1999Q1,2026Q2,true
+Point72 Asset Management,multi_manager,0002006887,affiliate,Point72 Italy,SoundStone Italy S.r.l.,"Point72 Italy, S.r.l.","VIA BIANCARDI 2, MILAN",8,2023Q4,2025Q3,57,1999Q1,2026Q2,true
+Point72 Asset Management,multi_manager,0002017863,affiliate,Point72 (DIFC),Point72 (DIFC) Ltd,"","L34-02, LEVEL 34, DUBAI, C0",7,2024Q1,2025Q3,57,1999Q1,2026Q2,true
+Balyasny Asset Management,multi_manager,0001218710,primary,,BALYASNY ASSET MANAGEMENT L.P.,BALYASNY ASSET MANAGEMENT L.P.; BALYASNY ASSET MANAGEMENT LLC,"444 WEST LAKE STREET 50TH FLOOR, CHICAGO, IL",95,2002Q4,2026Q2,0,,,false
+ExodusPoint Capital Management,multi_manager,0001736225,primary,,"ExodusPoint Capital Management, LP","","65 E 55TH STREET, NEW YORK, NY",31,2018Q4,2026Q2,0,,,false
+Schonfeld Strategic Advisors,multi_manager,0001665241,primary,,Schonfeld Strategic Advisors LLC,"","590 MADISON AVENUE, NEW YORK, NY",42,2016Q1,2026Q2,0,,,false
+Baker Bros. Advisors,healthcare,0001263508,primary,,BAKER BROS. ADVISORS LP,BAKER BROS ADVISORS LLC,"860 WASHINGTON STREET, NEW YORK, NY",99,2001Q4,2026Q2,0,,,false
+RA Capital Management,healthcare,0001346824,primary,,"RA CAPITAL MANAGEMENT, L.P.","RA CAPITAL MANAGEMENT, LLC","200 BERKELEY STREET, 18TH FLOOR, BOSTON, MA",75,2007Q4,2026Q2,0,,,false
+Perceptive Advisors,healthcare,0001224962,primary,,PERCEPTIVE ADVISORS LLC,PERCEPTIVE ADVISORS LLC,"51 ASTOR PLACE, 10TH FLOOR, NEW YORK, NY",99,2001Q4,2026Q2,0,,,false
+Deerfield Management,healthcare,0001009258,primary,,"DEERFIELD MANAGEMENT COMPANY, L.P.","DEERFIELD MANAGEMENT COMPANY, L.P. (SERIES C); DEERFIELD MANAGEMENT CO; DEERFIELD MANAGEMENT CO /NY; DEERFIELD MANAGEMENT/NY","345 PARK AVENUE SOUTH, 12TH FLOOR, NEW YORK, NY",110,1999Q1,2026Q2,0,,,false
+OrbiMed Advisors,healthcare,0001033248,predecessor,OrbiMed Advisers Inc /CT until 2003,ORBIMED ADVISERS INC /CT,MEHTA & ISALY ASSET MANAGEMENT INC,"41 MADISON AVENUE 40TH FLOOR, NEW YORK, NY",16,1999Q1,2002Q3,5,2000Q3,2002Q4,true
+OrbiMed Advisors,healthcare,0001055951,primary,,ORBIMED ADVISORS LLC,"","601 LEXINGTON AVENUE, NEW YORK, NY",99,2000Q3,2026Q2,5,2000Q3,2002Q4,true
+OrbiMed Advisors,healthcare,0001157524,affiliate,OrbiMed Capital; one filing,ORBIMED CAPITAL LLC,"","601 LEXINGTON AVENUE, NEW YORK, NY",1,2002Q4,2002Q4,5,2000Q3,2002Q4,true
+Avoro Capital Advisors,healthcare,0001633313,primary,,Avoro Capital Advisors LLC,venBio Select Advisor LLC,"110 GREENE STREET, NEW YORK, NY",47,2014Q4,2026Q2,0,,,false
+EcoR1 Capital,healthcare,0001587114,primary,,"EcoR1 Capital, LLC","","357 TEHAMA STREET #3, SAN FRANCISCO, CA",47,2014Q4,2026Q2,0,,,false

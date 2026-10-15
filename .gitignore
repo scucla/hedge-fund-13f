@@ -1,5 +1,6 @@
 # Data (large, re-downloadable)
-data/
+data/*
+!data/reference/
 
 # Secrets
 .env
