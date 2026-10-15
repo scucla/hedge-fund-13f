@@ -1,0 +1,15 @@
+# Data (large, re-downloadable)
+data/
+
+# Secrets
+.env
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+.pytest_cache/
+
+# Notebooks / OS
+.ipynb_checkpoints/
+.DS_Store

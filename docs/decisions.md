@@ -1,0 +1,39 @@
+# Design decisions
+
+Short records of non-obvious choices, newest at the bottom. Each one says what was decided and why.
+
+## 2026-10-14: Python and tooling
+
+- **Python 3.11 via `uv`**, pinned in `.python-version`. The system Python on the dev machine is 3.9; `uv` installs its own interpreter so the project doesn't depend on it.
+- **The SEC User-Agent lives in `.env`** (gitignored) and is read through `SEC_USER_AGENT`. `.env.example` shows the format without the real email.
+
+## 2026-10-14: Downloading the SEC data sets (`src/ingest/download.py`)
+
+- **Since March 2024 the SEC publishes 13F data sets by filing-date window** (e.g. `01jun2026-31aug2026_form13f.zip`), not by calendar quarter. Before that, files were `YYYYqN_form13f.zip` and held the filings made *during* that quarter. The downloader takes *holdings* quarters and picks the file whose window contains that quarter's 45-day filing deadline, so both schemes work with one rule.
+- **URLs come from the SEC listing page, not a template.** The newest file was under `/files/datastandardsinnovation/...` while older ones are under `/files/structureddata/...`; a hard-coded pattern would have broken.
+- **Downloads write to a `.part` file and rename when complete**, so an interrupted download is never mistaken for a cached one.
+- **Requests are spaced 0.2 s apart** (≤5/s, half the SEC's 10/s limit) and send `SEC_USER_AGENT`.
+
+## 2026-10-14: Loading into DuckDB (`src/ingest/load.py`)
+
+- **Values are normalized to dollars by *filing date*, not report period.** The SEC readme says market value is "rounded to the nearest dollar" starting January 3, 2023, and in thousands before. The data confirms it: a 2001 holdings report filed in 2026 is already in dollars.
+- **`known_at` = filing date.** That is when the public could first see the holdings. `quarter` comes from the report period, never from the file the filing arrived in: the Jun–Aug 2026 file also contains late filings for older quarters (one goes back to 2001).
+- **Three tables:**
+  - `filings`: one row per 13F-HR / 13F-HR/A. Notices (13F-NT, and amendments whose report type is NOTICE) are dropped because they carry no holdings. `amendment_type` (RESTATEMENT / NEW HOLDINGS) is kept as filed.
+  - `infotable_raw`: every row, keyed on the SEC's own primary key `(accession_number, infotable_sk)`. We first planned a wider key `(accession, CUSIP, put/call, discretion, other manager)`, but it isn't unique: ~222k of 3.8M rows in 2026Q2 repeat it because some filers split one position into lots.
+  - `holdings`: `infotable_raw` combined per `(accession, CUSIP, put/call)`. This is the table with the strict uniqueness test. Options stay separate from the stock (`put_call` = '' for the stock itself so it can be in a key).
+- **Shares and bond principal are summed into separate columns.** ~1,090 holdings report one CUSIP partly in shares (SH) and partly in principal (PRN); adding those would be meaningless.
+- **$0 values are kept.** ~0.3% of rows are reported at exactly $0 (mostly tiny or worthless positions, median 8 shares). The test checks "no negative or missing values" instead of "strictly positive", plus a check that zeros stay under 1%.
+- **The build writes to a temp file and swaps it in only on success**, and builds `holdings` one source file at a time. Grouping all 14M rows at once spilled several GB of temp data and failed on a nearly full disk.
+
+## 2026-10-14: Which filings count for a fund-quarter (`src/ingest/positions.py`)
+
+Point-in-time rule, as of a date:
+1. Only filings with `known_at <= as_of`.
+2. Base report = the latest 13F-HR original or RESTATEMENT amendment (a restatement replaces the whole report). 4 fund-quarters have two originals; the later one wins.
+3. NEW HOLDINGS amendments filed after the base are added on top (often positions that had confidential treatment).
+4. Amendments with no amendment type (9 in the current data) are ambiguous, so they're skipped with a warning. We go by `submission_type`, not `amendment_type`, to decide original vs. amendment, because 5 originals carry an amendment type by mistake.
+
+## 2026-10-14: One firm, several filer IDs
+
+Pershing Square files under two CIKs. For 2025Q3–2026Q1 both *Pershing Square Capital Management* (1336528) and *Pershing Square Holdco / Inc.* (2026053) filed holdings reports; for 2026Q2 Capital Management filed only a 13F-NT notice and Pershing Square Inc. reported the holdings. The seed list in Milestone 0 needs to map each fund to *all* of its CIKs, and avoid double-counting quarters where both entities report the same book.
