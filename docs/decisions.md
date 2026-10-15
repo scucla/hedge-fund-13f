@@ -49,3 +49,10 @@ Pershing Square files under two CIKs. For 2025Q3–2026Q1 both *Pershing Square 
   - *Hand-overs* (1–4 quarters, e.g. Elliott 2020, Brave Warrior 2012): one book changing filer, possibly reported twice in the switch quarter.
   - *Parallel filers* (e.g. Soros, Two Sigma, AQR, Millennium, Point72, Steadfast, Icahn): either separate books (Point72's regional entities) or the same book reported twice (a founder filing personally). Which one needs a holdings comparison; that's for the feature milestone, so no fund-quarter gets double-counted.
 - **`style_guess` is a weak label**, copied as given. It will be checked against hand labels in Milestone 4.
+
+## 2026-10-14: Seed list review decisions (owner)
+
+- **Abrams: the intended fund is Abrams Capital Management** (David Abrams, Boston; CIK 1358706, with 1426355 as its 2008–2010 predecessor), not Abrams Bison Investments (Bethesda, MD), which the original list named by mistake.
+- **Unconfirmed IDs are dropped from the mapping.** Only Gotham Asset Management LLC (1510387, Greenblatt's current firm) counts for Gotham. Removed: Gotham Asset Management LP (1279148), Gotham Select Fund Management LP (1352839), Gotham Select Fund GP (1352421), and York GP, Ltd. (1289994). If any is confirmed later, add it back to `seed_cik_map.csv`.
+- **Funds that stopped filing stay in.** Scion (last 13F-HR for 2025Q3) and Tybourne (2025Q3) are kept: dropping funds that closed would bias every historical result toward survivors.
+- **DME Capital Management (1489933) is Greenlight's successor filer.** Greenlight Capital Inc (1079114) filed its last 13F-HR in February 2024; DME (David M. Einhorn's firm) shares Greenlight's address, 140 East 45th Street, and files from then on. Both IDs map to "Greenlight Capital".

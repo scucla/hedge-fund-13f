@@ -66,12 +66,10 @@ Fairholme Capital Management,value_concentrated,0001056831,primary,,FAIRHOLME CA
 Himalaya Capital Management,value_concentrated,0001709323,primary,,Himalaya Capital Management LLC,"","1301 2ND AVENUE, SEATTLE, WA",35,2016Q4,2026Q2,0,,,false
 Scion Asset Management,value_concentrated,0001182422,predecessor,Scion Capital LLC 2005-2009,SCION CAPITAL LLC,"","20400 STEVENS CREEK BLVD., CUPERTINO, CA",17,2004Q4,2008Q4,0,,,false
 Scion Asset Management,value_concentrated,0001649339,primary,,"Scion Asset Management, LLC","","20665 4TH STREET, SARATOGA, CA",32,2015Q4,2025Q3,0,,,false
-Abrams Bison Investments,value_concentrated,0001317588,primary,"Bethesda, MD. Not Abrams Capital Management (David Abrams, Boston, CIKs 1358706 / 1426355); check which one was intended","ABRAMS BISON INVESTMENTS, LLC","","3 BETHESDA METRO CENTER, BETHESDA, MD",87,2004Q4,2026Q2,0,,,false
+Abrams Capital Management,value_concentrated,0001358706,primary,"David Abrams, Boston","ABRAMS CAPITAL MANAGEMENT, L.P.","PAMET CAPITAL MANAGEMENT, LP","222 BERKELEY STREET, 21ST FLOOR, BOSTON, MA",82,2006Q1,2026Q2,12,2007Q4,2010Q3,true
+Abrams Capital Management,value_concentrated,0001426355,predecessor,Abrams Capital Management LLC 2008-2010,"Abrams Capital Management, LLC","","222 BERKELEY STREET, BOSTON, MA",12,2007Q4,2010Q3,12,2007Q4,2010Q3,true
 Brave Warrior Advisors,value_concentrated,0000789920,predecessor,Brave Warrior Capital until 2012,"BRAVE WARRIOR CAPITAL, INC.","CHIEFTAIN CAPITAL MANAGEMENT, INC.; CHIEFTAIN CAPITAL MANAGEMENT INC","12 EAST 49TH ST, NEW YORK, NY",53,1999Q1,2012Q1,1,2012Q1,2012Q1,true
 Brave Warrior Advisors,value_concentrated,0001553733,primary,,"Brave Warrior Advisors, LLC","","12 EAST 49 STREET, 31ST FLOOR, NEW YORK, NY",58,2012Q1,2026Q2,1,2012Q1,2012Q1,true
-Gotham Asset Management,value_concentrated,0001279148,uncertain,Gotham Asset Management LP 2006-2009 at 535 Madison Ave; not confirmed as Greenblatt's Gotham,GOTHAM ASSET MANAGEMENT LP,"","535 MADISON AVENUE, NEW YORK, NY",16,2005Q4,2009Q3,0,,,false
-Gotham Asset Management,value_concentrated,0001352839,uncertain,Gotham Select Fund Management LP 2006-2009 at 535 Madison Ave; not confirmed,Gotham Select Fund Management LP,"","535 MADISON AVENUE, NEW YORK, NY",13,2005Q4,2008Q4,0,,,false
-Gotham Asset Management,value_concentrated,0001352421,uncertain,Gotham Select Fund GP 2006 at 520 Madison Ave; not confirmed,Gotham Select Fund GP LLC,"","520 MADISON AVENUE, 35TH FLOOR, NEW YORK, NY",2,2006Q1,2006Q2,0,,,false
 Gotham Asset Management,value_concentrated,0001510387,primary,,"Gotham Asset Management, LLC","","825 THIRD AVENUE, SUITE 1750, NEW YORK, NY",63,2010Q4,2026Q2,0,,,false
 Egerton Capital,value_concentrated,0001083657,predecessor,Egerton Capital Ltd until 2013,EGERTON CAPITAL LTD,"","STRATTON HOUSE, LONDON, X0",55,1998Q4,2013Q2,0,,,false
 Egerton Capital,value_concentrated,0001581811,primary,Egerton Capital (UK) LLP,Egerton Capital (UK) LLP,"","STRATTON HOUSE, LONDON, X0",52,2013Q3,2026Q2,0,,,false
@@ -101,7 +99,6 @@ Taconic Capital Advisors,event_driven,0001212350,affiliate,Taconic Offshore / Ta
 Taconic Capital Advisors,event_driven,0001390113,primary,,Taconic Capital Advisors LP,"","280 PARK AVENUE, 5TH FLOOR, NEW YORK, NY",78,2007Q1,2026Q2,18,2002Q4,2007Q1,true
 York Capital Management,event_driven,0001012670,predecessor,JGD Management Corp until 2010,JGD MANAGEMENT CORP /NY,"","767 FIFTH AVENUE, 17TH FLOOR, NEW YORK, NY",41,1999Q1,2010Q3,0,,,false
 York Capital Management,event_driven,0001480532,primary,York Capital Management Global Advisors,"York Capital Management Global Advisors, LLC","","1330 AVENUE OF THE AMERICAS, NEW YORK, NY",60,2010Q4,2025Q3,0,,,false
-York Capital Management,event_driven,0001289994,uncertain,"York GP, Ltd. (Cayman registered-office address) 2023-2026; not confirmed","York GP, Ltd.","","UGLAND HOUSE, GRAND CAYMAN, E9",11,2023Q1,2026Q2,0,,,false
 Pentwater Capital Management,event_driven,0001425851,primary,,Pentwater Capital Management LP,"","1001 10TH AVENUE SOUTH, NAPLES, FL",75,2007Q4,2026Q2,0,,,false
 HBK Investments,event_driven,0001011443,primary,,HBK INVESTMENTS L P,"","2300 NORTH FIELD STREET, DALLAS, TX",109,1999Q1,2026Q2,0,,,false
 Sculptor Capital Management,event_driven,0001056518,predecessor,OZ Management LLC /NY/ 1999-2001,OZ MANAGEMENT LLC /NY/,"","9 WEST 57TH STREET, NEW YORK, NY",9,1999Q1,2001Q1,0,,,false
@@ -123,9 +120,9 @@ Millennium Management,multi_manager,0000851909,predecessor,Millennium Partners L
 Millennium Management,multi_manager,0001273087,primary,,MILLENNIUM MANAGEMENT LLC,"MILLENNIUM MANAGEMENT, L.L.C.","399 PARK AVENUE, NEW YORK, NY",80,2003Q4,2026Q2,41,2007Q4,2026Q2,true
 Millennium Management,multi_manager,0001426817,affiliate,Millennium Capital Partners LLP (London) 2008-2009,MILLENNIUM CAPITAL PARTNERS LLP,"","50 BERKELEY STREET, LONDON, X0",8,2007Q4,2009Q3,41,2007Q4,2026Q2,true
 Millennium Management,multi_manager,0001745981,affiliate,WorldQuant Millennium Advisors; same address as Millennium,WORLDQUANT MILLENNIUM ADVISORS LLC,WORLDQUANT MILLENNIUM QUANTITATIVE STRATEGIES LLC,"399 PARK AVENUE, NEW YORK, NY",33,2018Q2,2026Q2,41,2007Q4,2026Q2,true
+Point72 Asset Management,multi_manager,0000933279,predecessor,S A C Capital Management LP 1999,S A C CAPITAL MANAGEMENT L P,"","777 LOND RIDGE ROAD, STAMFORD, CT",2,1999Q1,1999Q2,57,1999Q1,2026Q2,true
 Point72 Asset Management,multi_manager,0001018103,predecessor,SAC Capital Advisors LLC 1999-2009,SAC CAPITAL ADVISORS LLC,"","72 CUMMINGS POINT ROAD, STAMFORD, CT",43,1999Q1,2009Q3,57,1999Q1,2026Q2,true
 Point72 Asset Management,multi_manager,0001015076,predecessor,S A C Capital Management LLC 1999-2009,S A C CAPITAL MANAGEMENT L L C,"","C/O 72 CUMMINGS POINT ROAD, STAMFORD, CT",7,1999Q1,2009Q3,57,1999Q1,2026Q2,true
-Point72 Asset Management,multi_manager,0000933279,predecessor,S A C Capital Management LP 1999,S A C CAPITAL MANAGEMENT L P,"","777 LOND RIDGE ROAD, STAMFORD, CT",2,1999Q1,1999Q2,57,1999Q1,2026Q2,true
 Point72 Asset Management,multi_manager,0001451928,predecessor,SAC Capital Advisors LP 2009-2015,SAC Capital Advisors LP,"","72 CUMMINGS POINT ROAD, STAMFORD, CT",27,2009Q1,2015Q3,57,1999Q1,2026Q2,true
 Point72 Asset Management,multi_manager,0001599822,affiliate,Point72 Hong Kong (S.A.C. Capital Advisors Hong Kong in 2014),Point72 Hong Kong Ltd,Point72 Asia (Hong Kong) Ltd; S.A.C. Capital Advisors (Hong Kong) Ltd.,"SUITES 1102-1110, 11TH FL. AND 12TH FL., HONG KONG, K3",48,2013Q4,2025Q3,57,1999Q1,2026Q2,true
 Point72 Asset Management,multi_manager,0001603466,primary,,"Point72 Asset Management, L.P.","","72 CUMMINGS POINT ROAD, STAMFORD, CT",49,2014Q2,2026Q2,57,1999Q1,2026Q2,true
