@@ -109,3 +109,44 @@ def test_known_mappings(sec_db, cusip, symbol, cls):
         pytest.skip("security_master not built")
     row = sec_db.execute("SELECT symbol, security_class FROM security_master WHERE cusip = ?", [cusip]).fetchone()
     assert row == (symbol, cls)
+
+
+# --- delisted issuers -----------------------------------------------------------
+
+from src.securities.cusip_map import common_ticker, is_us_exchange, normalize_name  # noqa: E402
+
+
+@pytest.mark.parametrize("a, b", [
+    ("ELECTRONIC ARTS INC", "ELECTRONIC ARTS INC."),
+    ("HOLOGIC INC", "HOLOGIC, INC"),
+    ("NUVALENT INC-A", "NUVALENT, INC."),
+    ("CYBERARK SOFTWARE LTD/ISRAEL", "CyberArk Software Ltd."),
+])
+def test_normalize_name_matches_filer_names(a, b):
+    assert normalize_name(a) == normalize_name(b)
+
+
+def test_normalize_name_keeps_distinct_companies_apart():
+    assert normalize_name("BANK OF AMERICA CORP") != normalize_name("BANK OF AMERICA CORP /DE/ PREFERRED TRUST")
+
+
+@pytest.mark.parametrize("code, us", [("US", True), ("UN", True), ("UW", True), ("MM", False), ("GR", False),
+                                      ("X1", False), (None, False)])
+def test_is_us_exchange(code, us):
+    assert is_us_exchange(code) is us
+
+
+def test_common_ticker_ignores_venue_suffixes():
+    resp = {"data": [{"ticker": "HON"}, {"ticker": "HON"}, {"ticker": "HONGBP"}, {"ticker": "HON"}]}
+    assert common_ticker(resp) == "HON"
+
+
+@pytest.mark.data
+@pytest.mark.parametrize("cusip, symbol, cik", [
+    ("285512109", "EA", "0000712515"),     # taken private: US listing recovered, CIK by name
+    ("934423104", "WBD", "0001437107"),    # was mapped to the Mexican listing "WBD*"
+    ("436440101", "HOLX", "0000859737"),
+])
+def test_delisted_names_recovered(sec_db, cusip, symbol, cik):
+    row = sec_db.execute("SELECT symbol, issuer_cik FROM security_master WHERE cusip = ?", [cusip]).fetchone()
+    assert row == (symbol, cik)

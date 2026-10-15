@@ -93,20 +93,25 @@ def _cached_figi() -> dict[str, dict]:
     return out
 
 
-def openfigi_map(id_type: str, values: list[str]) -> dict[str, dict]:
-    """Map identifiers through OpenFIGI, caching every response (hits and misses)."""
+def openfigi_map(id_type: str, values: list[str], include_unlisted: bool = False) -> dict[str, dict]:
+    """Map identifiers through OpenFIGI, caching every response (hits and misses).
+
+    include_unlisted asks OpenFIGI to also return listings that no longer
+    trade, e.g. the US listing of a stock delisted after a takeover."""
+    cache_type = id_type + ("+unlisted" if include_unlisted else "")
+    extra = {"includeUnlistedEquities": True} if include_unlisted else {}
     load_dotenv()
     key = os.environ.get("OPENFIGI_API_KEY", "").strip()
     per_request, wait = (JOBS_PER_REQUEST, SECONDS_PER_REQUEST) if key else (10, 60 / 25)
     headers = {"Content-Type": "application/json", **({"X-OPENFIGI-APIKEY": key} if key else {})}
 
     cache = _cached_figi()
-    todo = [v for v in dict.fromkeys(values) if (id_type, v) not in cache]
+    todo = [v for v in dict.fromkeys(values) if (cache_type, v) not in cache]
     FIGI_CACHE.parent.mkdir(parents=True, exist_ok=True)
     for i in range(0, len(todo), per_request):
         batch = todo[i:i + per_request]
         for attempt in range(5):
-            resp = requests.post(FIGI_URL, json=[{"idType": id_type, "idValue": v} for v in batch],
+            resp = requests.post(FIGI_URL, json=[{"idType": id_type, "idValue": v, **extra} for v in batch],
                                  headers=headers, timeout=60)
             if resp.status_code != 429:
                 break
@@ -114,11 +119,22 @@ def openfigi_map(id_type: str, values: list[str]) -> dict[str, dict]:
         resp.raise_for_status()
         with FIGI_CACHE.open("a") as f:
             for v, r in zip(batch, resp.json()):
-                cache[(id_type, v)] = r
-                f.write(json.dumps({"idType": id_type, "idValue": v, "response": r}) + "\n")
-        print(f"  OpenFIGI {id_type}: {min(i + per_request, len(todo)):,}/{len(todo):,}")
+                cache[(cache_type, v)] = r
+                f.write(json.dumps({"idType": cache_type, "idValue": v, "response": r}) + "\n")
+        print(f"  OpenFIGI {cache_type}: {min(i + per_request, len(todo)):,}/{len(todo):,}")
         time.sleep(wait)
-    return {v: cache[(id_type, v)] for v in values}
+    return {v: cache[(cache_type, v)] for v in values}
+
+
+def is_us_exchange(code: str | None) -> bool:
+    """OpenFIGI US exchange codes: US (composite), UN, UW, UQ, UA, UP, ..."""
+    return bool(code) and (code == "US" or (len(code) == 2 and code.startswith("U")))
+
+
+def common_ticker(response: dict) -> str | None:
+    """The ticker used by most of a security's listings (HON, not HONGBP)."""
+    tickers = [d.get("ticker") for d in response.get("data") or [] if d.get("ticker")]
+    return max(set(tickers), key=tickers.count) if tickers else None
 
 
 def best_listing(response: dict) -> dict | None:
@@ -159,6 +175,56 @@ def ticker_ciks() -> pl.DataFrame:
                          for d in data.values()]).unique("symbol", keep="first")
 
 
+FRAMES_DIR = Path("data/raw/edgar/frames")
+FRAMES = [("us-gaap", "CY2024Q4I"), ("us-gaap", "CY2025Q2I"), ("us-gaap", "CY2025Q4I"),
+          ("ifrs-full", "CY2024Q4I"), ("ifrs-full", "CY2025Q2I")]
+_SUFFIXES = {"INC", "CORP", "CORPORATION", "CO", "COMPANY", "LTD", "LIMITED", "PLC", "NV", "SA", "AG", "SE",
+             "LLC", "LP", "THE", "CL", "CLASS", "A", "B", "C", "COM", "ISRAEL", "DE", "NEW"}
+
+
+def normalize_name(name: str | None) -> str | None:
+    """'ELECTRONIC ARTS INC.' and 'Electronic Arts Inc' -> 'ELECTRONIC ARTS'."""
+    if not name:
+        return None
+    tokens = re.sub(r"[^A-Z0-9 ]", " ", name.upper().replace("&", " AND ")).split()
+    while tokens and tokens[-1] in _SUFFIXES:
+        tokens.pop()
+    return " ".join(tokens) or None
+
+
+def xbrl_filer_names() -> pl.DataFrame:
+    """CIK and name of every company that reported total assets in recent
+    periods (SEC XBRL frames API). Unlike the ticker file, this still includes
+    companies that have since been taken private or acquired."""
+    rows = []
+    for taxonomy, period in FRAMES:
+        path = FRAMES_DIR / f"{taxonomy}_Assets_{period}.json"
+        if not path.exists():
+            FRAMES_DIR.mkdir(parents=True, exist_ok=True)
+            try:
+                path.write_bytes(sec.get(f"https://data.sec.gov/api/xbrl/frames/{taxonomy}/Assets/USD/{period}.json").content)
+            except Exception:
+                path.write_text('{"data": []}')
+        rows += [{"cik": str(d["cik"]).zfill(10), "name": normalize_name(d["entityName"])}
+                 for d in json.loads(path.read_text()).get("data", [])]
+    return pl.DataFrame(rows).unique()
+
+
+def ciks_by_name(master: pl.DataFrame) -> dict[str, str]:
+    """For common stock and ADRs with no CIK from the ticker file, match the
+    issuer name against XBRL filers. Only one-to-one matches are accepted."""
+    filers = xbrl_filer_names()
+    unique = filers.group_by("name").agg(pl.col("cik").n_unique().alias("n"), pl.col("cik").first()).filter(pl.col("n") == 1)
+    lookup = dict(unique.select("name", "cik").iter_rows())
+    out = {}
+    for cusip, *names in master.filter(pl.col("issuer_cik").is_null() & pl.col("security_class").is_in(["common", "adr"])) \
+            .select("cusip", "figi_name", "issuer_13f", "name_of_issuer").iter_rows():
+        found = {lookup[n] for n in map(normalize_name, names) if n and n in lookup}
+        if len(found) == 1:
+            out[cusip] = found.pop()
+    return out
+
+
 # --- build --------------------------------------------------------------------
 
 def build() -> pl.DataFrame:
@@ -180,6 +246,21 @@ def build() -> pl.DataFrame:
     for c, r in by_cins.items():
         if best_listing(r) is not None:
             by_cusip[c] = r | {"_source": "openfigi_cins"}
+    # Stocks delisted since (taken private, acquired) often only have foreign
+    # cross-listings left (EA* in Mexico, HO1 in Germany). Ask again including
+    # unlisted equities to recover the US listing.
+    foreign = [c for c, r in by_cusip.items()
+               if best_listing(r) is not None and not is_us_exchange(best_listing(r).get("exchCode"))]
+    for id_type, ids in (("ID_CUSIP", [c for c in foreign if not c[0].isalpha()]),
+                         ("ID_CINS", [c for c in foreign if c[0].isalpha()])):
+        if not ids:
+            continue
+        for c, r in openfigi_map(id_type, ids, include_unlisted=True).items():
+            us = [d for d in r.get("data") or [] if is_us_exchange(d.get("exchCode"))]
+            if us:
+                by_cusip[c] = {"data": us, "_source": "openfigi_unlisted"}
+            else:  # no US listing at all: keep the foreign listing, but use the common ticker
+                by_cusip[c] = by_cusip[c] | {"_source": "openfigi_foreign_listing", "_ticker": common_ticker(r)}
     # Fallback: FIGIs that filers reported themselves for CUSIPs still unmapped.
     unmapped = [c for c, r in by_cusip.items() if best_listing(r) is None]
     filer_figis = con.execute("""
@@ -196,7 +277,7 @@ def build() -> pl.DataFrame:
             listing, source = best_listing(by_figi.get(figi_for[cusip], {})), "openfigi_filer_figi"
         rows.append({
             "cusip": cusip,
-            "ticker": listing.get("ticker") if listing else None,
+            "ticker": (by_cusip[cusip].get("_ticker") or listing.get("ticker")) if listing else None,
             "exch_code": listing.get("exchCode") if listing else None,
             "figi": listing.get("figi") if listing else None,
             "composite_figi": listing.get("compositeFIGI") if listing else None,
@@ -226,6 +307,15 @@ def build() -> pl.DataFrame:
         )
         .join(ticker_ciks(), on="symbol", how="left")
         .with_columns(pl.lit(None, dtype=pl.Date).alias("known_at"))  # current mapping, not point-in-time
+    )
+    # Delisted issuers drop out of the SEC ticker file; recover their CIK by name.
+    by_name = ciks_by_name(master)
+    master = master.with_columns(
+        pl.when(pl.col("issuer_cik").is_null()).then(pl.col("cusip").replace_strict(by_name, default=None))
+        .otherwise(pl.col("issuer_cik")).alias("issuer_cik"),
+        pl.when(pl.col("issuer_cik").is_null() & pl.col("cusip").is_in(list(by_name)))
+        .then(pl.lit("xbrl_name_match")).when(pl.col("issuer_cik").is_not_null()).then(pl.lit("sec_ticker_file"))
+        .alias("issuer_cik_source"),
     )
     con.execute("CREATE OR REPLACE TABLE security_master AS SELECT * FROM master")
     return master

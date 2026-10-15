@@ -35,7 +35,7 @@ def symbols_to_price(con) -> list[str]:
     return [r[0] for r in con.execute(f"""
         SELECT DISTINCT symbol FROM security_master
         WHERE symbol IS NOT NULL AND security_class IN {PRICED_CLASSES}
-          AND (exch_code = 'US' OR exch_code LIKE 'U_')
+          AND (exch_code = 'US' OR exch_code LIKE 'U_' OR map_source = 'openfigi_foreign_listing')
         ORDER BY symbol
     """).fetchall()]
 
