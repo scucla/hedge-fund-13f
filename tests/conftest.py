@@ -91,3 +91,20 @@ def real_db():
     con = duckdb.connect(str(DB_PATH), read_only=True)
     yield con
     con.close()
+
+
+@pytest.fixture(scope="session")
+def sec_db():
+    from src.securities.db import DB_PATH as SEC_DB_PATH
+
+    if not SEC_DB_PATH.exists():
+        pytest.skip(f"{SEC_DB_PATH} not built; run the src.securities steps")
+    con = duckdb.connect(str(SEC_DB_PATH), read_only=True)
+    yield con
+    con.close()
+
+
+def table_exists(con, name: str) -> bool:
+    return con.execute(
+        "SELECT count(*) FROM information_schema.tables WHERE table_name = ?", [name]
+    ).fetchone()[0] > 0

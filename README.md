@@ -2,7 +2,7 @@
 
 Infers hedge fund strategies from SEC 13F filings, clusters similar funds, and predicts next-quarter position changes. See [`docs/plan.md`](docs/plan.md) for the full plan and [`docs/decisions.md`](docs/decisions.md) for design choices.
 
-**Status:** Milestone 1 (ingesting holdings).
+**Status:** Milestones 0–2 done (holdings, seed funds, securities and characteristics).
 
 ## What 13F data can't tell you
 
@@ -22,4 +22,15 @@ uv run python -m src.ingest.download --start 2025Q3 --end 2026Q2   # SEC data se
 uv run python -m src.ingest.load                                    # → data/interim/13f.duckdb
 uv run python -m src.ingest.show_fund --cik 2026053 --quarter 2026Q2   # Pershing Square Inc.
 uv run pytest
+```
+
+### Milestone 2: securities
+
+```bash
+uv run python -m src.securities.universe       # seed funds' point-in-time positions
+uv run python -m src.securities.cusip_map      # CUSIP -> ticker (needs OPENFIGI_API_KEY for speed)
+uv run python -m src.securities.prices         # yfinance daily prices (slow: Yahoo rate-limits)
+uv run python -m src.securities.fundamentals   # SEC XBRL companyfacts + SIC codes
+uv run python -m src.securities.factors        # Fama-French 5 + momentum, FF12 industries
+uv run python -m src.securities.stock_quarter  # point-in-time characteristics -> data/processed/securities.duckdb
 ```

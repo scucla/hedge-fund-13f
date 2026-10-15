@@ -56,3 +56,69 @@ Pershing Square files under two CIKs. For 2025Q3–2026Q1 both *Pershing Square 
 - **Unconfirmed IDs are dropped from the mapping.** Only Gotham Asset Management LLC (1510387, Greenblatt's current firm) counts for Gotham. Removed: Gotham Asset Management LP (1279148), Gotham Select Fund Management LP (1352839), Gotham Select Fund GP (1352421), and York GP, Ltd. (1289994). If any is confirmed later, add it back to `seed_cik_map.csv`.
 - **Funds that stopped filing stay in.** Scion (last 13F-HR for 2025Q3) and Tybourne (2025Q3) are kept: dropping funds that closed would bias every historical result toward survivors.
 - **DME Capital Management (1489933) is Greenlight's successor filer.** Greenlight Capital Inc (1079114) filed its last 13F-HR in February 2024; DME (David M. Einhorn's firm) shares Greenlight's address, 140 East 45th Street, and files from then on. Both IDs map to "Greenlight Capital".
+
+## 2026-10-14: Milestone 2 scope and storage
+
+- **Scope: securities the seed funds held in 2025Q3–2026Q2** (`seed_positions`, built with the point-in-time filing rules from `positions.py`). All mapped CIKs are included, affiliates too; de-duplicating parallel filers is for the feature milestone.
+- **Milestone 2 tables live in `data/processed/securities.duckdb`**, separate from `data/interim/13f.duckdb`, because `src.ingest.load` rebuilds the 13F database from scratch. Long downloads open the database only at the start and end so other steps can run meanwhile.
+
+## 2026-10-14: CUSIP → ticker (`src/securities/cusip_map.py`)
+
+- **The SEC 13(f) list has no tickers.** It gives issuer name, a short description and an options-listed flag; tickers come from OpenFIGI.
+- **CUSIPs that start with a letter are CINS codes** (non-US domicile: G = Cayman/Bermuda/Ireland, H = Switzerland, N = Netherlands, L = Luxembourg…). OpenFIGI only maps them as `ID_CINS`. Retrying them that way took unmapped value from 4.7% to 0.13% (Chubb, ASML, Seagate, Spotify, Linde, Accenture, Medtronic…). Last resort: the FIGI some filers put in their own 13F rows.
+- **Listing choice:** the US composite listing (`exchCode = US`), then any US exchange, then anything.
+- **Security class from OpenFIGI's `securityType` before `securityType2`**: ETFs come back as `ETP` / `Mutual Fund`, and reading the second field first labelled every ETF a mutual fund.
+- **Coverage is measured by value, not rows:** 99.8–99.9% of seed-fund value maps to a ticker in every quarter. The unmapped rest is mostly SPACs and recently delisted names.
+- **The mapping is current, not point-in-time.** OpenFIGI returns today's ticker for a CUSIP. A company that changed ticker maps to its new one (fine for prices, since Yahoo history follows the security), and a CUSIP whose security no longer trades may not map at all. `security_master.known_at` is NULL to make that explicit.
+
+## 2026-10-14: Prices (`src/securities/prices.py`)
+
+- **yfinance adjusted closes (`auto_adjust=True`)**, so returns include dividends and splits. Adjusted history is restated by Yahoo after every dividend; that changes price *levels* but not returns, and only returns are used.
+- **Survivorship bias.** Yahoo drops most delisted tickers. Stocks that were acquired or delisted between the holdings date and today have no prices, so their features and labels are missing, and missing labels skew toward names that left the market (often takeovers, which tend to have positive returns, or failures, negative). This is a known limitation of the free stack; CRSP fixes it. Price coverage by value is reported every run, and `prices_missing` lists every symbol with no data.
+- **Only US listings in the priced classes** (common, ADR, ETF, closed-end fund) are downloaded. Warrants, rights, units and preferreds (0.2% of value) are out of scope; their OpenFIGI symbols rarely match Yahoo's.
+- **Rate limits:** Yahoo throttles bulk downloads. Only successful symbols and genuine "no data" answers are cached; everything else is retried with exponential backoff. A symbol counts as "no data" only when yfinance's error message says so ("possibly delisted", "no price data found"); yfinance 1.7 keeps no public per-symbol error record, so the messages are read from its log. Two earlier versions got this wrong (one cached throttled chunks as empty, one read an error dict yfinance no longer fills) and made AAPL and SPY look delisted. Final run: 9,219 of 9,370 symbols priced, 97.0–98.8% of seed-fund value per quarter; the 151 confirmed misses are mostly names acquired or delisted since (CyberArk, Comerica, Verona Pharma, Frontier, TEGNA, Civitas).
+
+## 2026-10-14: Fundamentals (`src/securities/fundamentals.py`)
+
+- **SEC companyfacts per issuer, every version kept, `known_at` = filing date.** A restatement is a new row with a later `known_at`, never an overwrite. Features as of date d use, for each concept and period, the latest version filed on or before d.
+- **USD only.** Foreign filers reporting in other currencies get no fundamentals rather than mixing currencies.
+- **Fallback concepts in priority order** (e.g. `StockholdersEquity`, then including non-controlling interest; IFRS equivalents). For shares outstanding: the cover-page `dei:EntityCommonStockSharesOutstanding`, then balance-sheet shares, then weighted-average basic shares. Companies with several share classes (Alphabet) tag the cover-page count per class, which companyfacts leaves out, hence the fallbacks.
+- **Sector from the SIC code in each issuer's EDGAR profile.** That is the company's current SIC, not a history; SIC codes rarely change.
+
+## 2026-10-14: Factors (`src/securities/factors.py`)
+
+- **Fama-French 5 factors + momentum, daily and monthly, from Ken French's library**, converted from percent to decimals. French revises past values when he updates the files, so this is a fixed-after-the-fact series. It's used for beta and later risk adjustment, not as a feature anyone could have known at the time.
+- **FF12 industries come from French's own `Siccodes12` file**, not a hand-typed table. SIC codes outside every listed range are industry 12 ("Other"), as French defines it.
+
+## 2026-10-14: `stock_quarter` (`src/securities/stock_quarter.py`)
+
+- **As of the calendar quarter end** (owner decision): 13F holdings are reported as of that date, so it's the natural snapshot. The label `ret_next_q` is the next calendar quarter's total return, with its own `label_known_at`. Lining up the 45-day filing lag is for the prediction and backtest milestones.
+- **Book-to-market is NULL when book equity is negative, zero or missing; the stock stays in the table** (owner decision). Dropping them would remove exactly the distressed and buyback-heavy firms some funds specialise in.
+- **Gross profitability (Novy-Marx 2013) instead of Fama-French operating profitability** (owner decision): FF's definition needs interest expense and SG&A, which XBRL filers often don't tag, so coverage would be poor. Annual gross profit / total assets at the same fiscal year end; revenue − cost of revenue when gross profit isn't tagged.
+- **No market cap (so no size or book-to-market) for ADRs.** Their XBRL share count is in ordinary shares, not ADRs (one TSMC ADR = 5 shares), and the ratio isn't tagged. ADRs still get book equity, profitability, asset growth and the price-based features. ETFs and closed-end funds get price-based features only.
+- **Staleness guards:** a "quarter-end price" must be from the last 10 days; book equity older than ~18 months and share counts older than ~13 months are ignored.
+- **Beta and volatility** use daily returns over the past 365 calendar days (at least 120 days), regressed on the FF market excess return. Daily data gives a usable estimate within one year, which a 60-month monthly beta can't for recent listings.
+- **Momentum (12-1)** is the return from the month-end 12 months before the quarter end to the month-end 1 month before it, skipping the last month (short-term reversal).
+- **Fixes found by checking the real table:**
+  - *Linked CIKs (`data/reference/issuer_cik_links.csv`, hand-reviewed).* ExxonMobil reorganized under a new holding company in 2026 (CIK 2115436, first XBRL filing 2026-08-03), and the SEC ticker file now points XOM there. The history is under the old Exxon Mobil Corp CIK (34088), so linked CIKs' facts are loaded under the current issuer. Other issuers whose filings start after they were first held are almost all 2025 IPOs and spin-offs (Figma, Chime, Circle, Klarna, Ralliant, Amrize); having no fundamentals before their first filing is correct point-in-time behaviour, not a gap.
+  - *Share counts ≤ 0 are ignored* (36 rows had market cap 0 from a mis-tagged zero).
+  - *A fact's period end must also be on or before the quarter end*, not just its filing date: one filing carried a balance sheet dated after its own filing date.
+- **Known gaps, not fixed:** banks and insurers have no gross profit, so `gp_at` is NULL for them (expected); Canadian issuers filing on Form 40-F (Teck, Rogers, Manulife, CGI) have little or no XBRL data; Yahoo has no prices for names delisted since (survivorship, above).
+- **Finding, not a bug:** defensive and energy stocks (KO, PEP, PG, JNJ, WMT, XOM, CVX) have small *negative* betas in 2026Q2 (12 months to June 2026), after positive betas in earlier quarters. The pipeline was checked: SPY, priced and aligned the same way, has 0.992 correlation and 0.96 beta with the FF market factor. It is a market regime, and worth remembering when beta is used as a feature.
+
+## 2026-10-15: Pre-commit checks on `stock_quarter` (owner-requested)
+
+- **Negative book equity: no tag problem.** Of common-stock rows that have a book-equity value, 10–12% are negative per quarter (8.6–11.1% of all common-stock rows). The 25 largest by market cap are the known buyback- and debt-funded names (AbbVie, Philip Morris, Dell, McDonald's, Booking, Lowe's, Altria, Starbucks, Marriott, McKesson, HCA, Hilton, TransDigm, AutoZone, O'Reilly, Yum, Verisk…), all from the primary `StockholdersEquity` tag. Five were checked against the balance sheet in the 10-Q itself (EDGAR's rendered R pages, cached under `data/raw/edgar/spotcheck/`), and all match to the reported precision: ABBV −6,656, LOW −9,270, SBUX −8,465.1, MCD −1,286, VRSK −1,167.7 ($M). Verisk confirms the parent-only line is used, not total equity including non-controlling interest.
+  - **Why the rate is above market-wide levels:** the universe is what hedge funds hold. SPACs (SIC 6770) are 181 of 527 negatives in 2026Q2; 83% of SPACs show negative stockholders' equity because their redeemable Class A shares sit in temporary equity, outside stockholders' equity. Without SPACs the rate is ~8%, the rest being cash-burning small caps (biotech, recent IPOs with accumulated deficits) and de-SPACs whose SIC code is no longer 6770. `bm` is already NULL for all of them; anyone filtering out SPACs can use `sic = 6770`, though that misses de-SPACs.
+- **Negative betas are real; no alignment bug.** For the year to 2026-06-30, betas against SPY daily returns are within 0.03 of the Fama-French ones for every name checked (KO −0.28, PEP −0.17, PG −0.06, JNJ −0.10, WMT −0.04, XOM −0.38, CVX −0.34; AAPL 0.87; SPY on itself 1.00). Against SPY *weekly* returns (52 points, noisier): CVX −0.43, JNJ −0.39, XOM −0.84 stay negative; KO −0.01 and WMT 0.00 are flat; PEP +0.19 and PG +0.41 turn slightly positive. Kept as computed (daily, FF market). Defensive and energy stocks had roughly zero-to-negative market sensitivity that year.
+- **Beta after French's data ends: fall back to SPY** (my call). For days after the last date in the FF daily file, the market excess return is SPY's daily return minus the last published RF. `beta_market` = `'ff'` or `'ff+spy'` and `n_proxy_days` count the SPY days, so the switch is visible. Chosen over marking betas incomplete because SPY tracks the FF market closely (daily correlation 0.992, SPY beta 0.96 on it), and dropping September would also have dropped those days from `vol`. No row uses the fallback yet (the latest quarter ends 2026-06-30); 2026Q3 holdings will.
+
+## Open issues
+
+- **ADRs have no size or book-to-market.** Their XBRL share count is ordinary shares, not ADRs (one TSMC ADR = 5 shares), and the ratio isn't tagged. Fix later with an ADR-ratio source (depositary bank ratio lists or the 20-F cover page) or a market cap from another provider. ADRs are ~3% of seed-fund value.
+- **Survivorship bias in prices** (yfinance drops delisted names): 151 symbols with no data, mostly companies acquired since the holdings date. CRSP via WRDS would fix it.
+- **Canadian 40-F filers** (Teck, Rogers, Manulife, CGI…) have little or no XBRL data, so no fundamentals.
+- **Banks and insurers have no gross profit**, so `gp_at` is NULL for them by construction.
+- **De-SPACs keep SPAC-style balance sheets for a while** and aren't flagged; SIC 6770 only catches SPACs that haven't completed a merger.
+- **The CUSIP → ticker mapping is current, not point-in-time** (OpenFIGI returns today's ticker).
+- **Parallel filers aren't de-duplicated yet** (e.g. Soros Fund Management and George Soros personally), so `seed_positions` can count the same book twice. Due in the feature milestone.
