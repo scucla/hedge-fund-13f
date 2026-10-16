@@ -32,3 +32,22 @@ def get(url: str, **kwargs) -> requests.Response:
     resp = requests.get(url, headers={"User-Agent": user_agent()}, timeout=60, **kwargs)
     resp.raise_for_status()
     return resp
+
+
+def get_head(url: str, max_bytes: int) -> bytes:
+    """The first `max_bytes` of a document. sec.gov ignores Range headers, so
+    stream and stop reading; merger proxies run to several MB and the terms are
+    on the first pages."""
+    global _last_request_at
+    wait = MIN_SECONDS_BETWEEN_REQUESTS - (time.monotonic() - _last_request_at)
+    if wait > 0:
+        time.sleep(wait)
+    _last_request_at = time.monotonic()
+    with requests.get(url, headers={"User-Agent": user_agent()}, timeout=60, stream=True) as resp:
+        resp.raise_for_status()
+        out = bytearray()
+        for chunk in resp.iter_content(65536):
+            out += chunk
+            if len(out) >= max_bytes:
+                break
+    return bytes(out[:max_bytes])

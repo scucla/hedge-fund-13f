@@ -26,6 +26,13 @@ profitability vs RMW positive. Where they disagree, the clone's return also
 reflects things the quarter-end characteristics miss (trading inside the
 quarter is invisible; the factors are rebalanced once a year for HML/RMW).
 
+Delisted stocks: a stock with no Yahoo prices (acquired or delisted since)
+enters with its filled quarterly return (13F-implied, or the delisting
+return; src.securities.labels) spread evenly over the three months. Without
+this, 12 seed funds (merger arbitrage, event-driven, private biotech) fell
+below MIN_COVERAGE. The Yahoo-only loadings are kept in
+`fund_factor_loadings_yahoo_only`.
+
 Not point-in-time, on purpose: a full-period regression uses every month of
 returns, so it is a **description** of a fund, never a model feature. Nothing
 in src/models/style_classifier.py reads it. The clone also ignores shorts,
@@ -77,6 +84,27 @@ def monthly_stock_returns(con) -> pl.DataFrame:
         FROM me WINDOW w AS (PARTITION BY symbol ORDER BY month)
         QUALIFY consecutive AND ret IS NOT NULL
     """).pl().drop("consecutive")
+
+
+def filled_monthly_returns(con, yahoo: pl.DataFrame) -> pl.DataFrame:
+    """Monthly returns for stocks Yahoo doesn't price, from the filled quarterly label
+    (13F-implied or delisting return; src.securities.labels): each of the three months
+    of q+1 gets (1 + R)^(1/3) - 1. The monthly path inside the quarter is unknown, so
+    spreading it evenly smooths these stocks (biases their betas slightly toward 0).
+    `big_move_few_funds` rows stay out: one unverified 20x return can swing a fund.
+    Only (symbol, month) pairs with no Yahoo return are added."""
+    if "ret_source" not in {r[0] for r in con.execute("DESCRIBE stock_quarter").fetchall()}:
+        return yahoo.clear()    # labels not filled yet (src.securities.labels): Yahoo only
+    q = con.execute("""
+        SELECT symbol, quarter, avg(ret_next_q) AS ret_q
+        FROM stock_quarter
+        WHERE ret_source <> 'yahoo' AND ret_source NOT LIKE 'missing:%' AND symbol IS NOT NULL
+          AND coalesce(label_flag, '') <> 'big_move_few_funds'
+        GROUP BY ALL
+    """).pl()
+    rows = [(sym, m, (1 + r) ** (1 / 3) - 1) for sym, quarter, r in q.iter_rows() for m in holding_months(quarter)]
+    filled = pl.DataFrame(rows, schema={"symbol": pl.Utf8, "month": pl.Date, "ret": pl.Float64}, orient="row")
+    return filled.join(yahoo.select("symbol", "month"), on=["symbol", "month"], how="anti")
 
 
 def books(con) -> pl.DataFrame:
@@ -222,11 +250,41 @@ def md_table(df: pl.DataFrame) -> str:
     return "\n".join(lines)
 
 
+def recovered_funds(con, clone_yahoo, clone, loadings_yahoo, loadings) -> pl.DataFrame:
+    """Funds with too few covered months on Yahoo prices alone, before and after the fill."""
+    names = con.execute("SELECT DISTINCT fund_id, fund_name FROM positions").pl()
+    lost = (clone_yahoo.select("fund_id", "cohort").unique()
+            .join(loadings_yahoo.select("fund_id"), on="fund_id", how="anti"))
+
+    def months(c, col):
+        return (c.filter(pl.col("coverage") >= MIN_COVERAGE).group_by("fund_id").len().rename({"len": col}))
+
+    def cov(c, col):
+        return c.group_by("fund_id").agg(pl.col("coverage").median().alias(col))
+
+    return (lost.join(names, on="fund_id", how="left")
+            .join(months(clone_yahoo, "months_yahoo"), on="fund_id", how="left")
+            .join(months(clone, "months_filled"), on="fund_id", how="left")
+            .join(cov(clone_yahoo, "median_cov_yahoo"), on="fund_id", how="left")
+            .join(cov(clone, "median_cov_filled"), on="fund_id", how="left")
+            .join(loadings.select("fund_id", "alpha_ann", *[f"b_{f}" for f in FACTORS], "r2"), on="fund_id", how="left")
+            .with_columns(pl.col("months_yahoo", "months_filled").fill_null(0),
+                          (pl.col("r2").is_not_null()).alias("regressed_now"))
+            .sort("cohort", "fund_name"))
+
+
 def main() -> None:
     con = db.connect()
-    clone = clone_returns(books(con), monthly_stock_returns(con))
+    yahoo = monthly_stock_returns(con)
+    book = books(con)
     factors = con.execute("SELECT * FROM ff_factors_monthly").pl()
+    # Yahoo-only clone (the Milestone 4 result), kept to show what the delisting fill changed
+    clone_yahoo = clone_returns(book, yahoo)
+    loadings_yahoo = regress(clone_yahoo, factors)
+    clone = clone_returns(book, pl.concat([yahoo, filled_monthly_returns(con, yahoo)]))
     loadings = regress(clone, factors)
+    recovered = recovered_funds(con, clone_yahoo, clone, loadings_yahoo, loadings)
+    con.execute("CREATE OR REPLACE TABLE fund_factor_loadings_yahoo_only AS SELECT * FROM loadings_yahoo")
     con.execute("CREATE OR REPLACE TABLE fund_clone_returns_monthly AS SELECT * FROM clone")
     tilts = mean_tilts(con, loadings)
     loaded = loadings.join(tilts, on="fund_id").join(
@@ -246,6 +304,11 @@ def main() -> None:
         *[pl.col(f"b_{f}").round(2) for f in FACTORS], pl.col("r2").round(2),
         *[pl.col(t).round(2) for t, _, _ in PAIRS])
     used = clone.filter(pl.col("coverage") >= MIN_COVERAGE)
+    used_yahoo = clone_yahoo.filter(pl.col("coverage") >= MIN_COVERAGE)
+    rec = recovered.select("fund_name", "cohort", "months_yahoo", "months_filled",
+                           pl.col("median_cov_yahoo").round(2), pl.col("median_cov_filled").round(2),
+                           pl.col("alpha_ann").round(3), *[pl.col(f"b_{f}").round(2) for f in FACTORS],
+                           pl.col("r2").round(2))
     REPORT.write_text(f"""# Returns-based factor regressions vs holdings-based tilts
 
 Generated by `uv run python -m src.models.factor_regressions`. Method and caveats in the module
@@ -253,6 +316,15 @@ docstring and `docs/decisions.md`. Return series: the 13F long book of quarter q
 close through quarter q+1 (the "clone"); monthly excess returns regressed on FF5 + momentum with Newey-West
 t-stats ({NW_LAGS} lags). Months with less than {MIN_COVERAGE:.0%} of the starting book priced are dropped
 ({len(clone) - len(used):,} of {len(clone):,} fund-months); funds need {MIN_MONTHS}+ months.
+
+Stocks Yahoo doesn't price (acquired or delisted since) enter with the filled quarterly label
+(13F-implied or delisting return, `src.securities.labels`), spread evenly over the quarter's three
+months. On Yahoo prices alone {len(used_yahoo):,} fund-months and {len(loadings_yahoo)} funds pass; with the fill,
+{len(used):,} fund-months and {len(loadings)} funds.
+
+## Funds that failed coverage on Yahoo prices alone
+
+{md_table(rec)}
 
 ## Do the two methods agree?
 
@@ -280,8 +352,9 @@ trading). Tilt columns: mean holdings z-scores over the same books.
 {md_table(per_fund)}
 """)
     with pl.Config(tbl_rows=20, tbl_width_chars=220, tbl_cols=20):
-        print(f"clone fund-months {len(clone):,}, used {len(used):,}; funds regressed {len(loaded)} "
-              f"(seed {len(seed)})")
+        print(f"clone fund-months {len(clone):,}, used {len(used):,} (Yahoo only {len(used_yahoo):,}); "
+              f"funds regressed {len(loaded)} (seed {len(seed)}; Yahoo only {len(loadings_yahoo)})")
+        print(rec)
         print(comp)
         print(comp_all)
         print(by_style)
