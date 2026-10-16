@@ -5,22 +5,108 @@ Usage:
 
 Writes `seed_positions` (one row per fund CIK, quarter, CUSIP, put/call) to
 the securities database, using the filing-selection rules in
-src.ingest.positions as of today. Every mapped CIK is included, affiliates
+src.ingest.positions as of today. Seed-fund filings come from both the
+history backfill (data/interim/13f_history.duckdb, 2015 on) and the current
+full database (data/interim/13f.duckdb, the latest four filing windows,
+which also holds late filings and amendments for older quarters). Every mapped CIK is included, affiliates
 too; de-duplicating parallel filers is left to the feature milestone.
 """
 
 import duckdb
 import polars as pl
 
+from src.ingest.backfill import HIST_DB
 from src.ingest.load import DB_PATH as FILINGS_DB_PATH
 from src.ingest.positions import fund_holdings
 from src.ingest.seed_ciks import SEED_PATH
 from src.securities import db
 
 
+def seed_filings_db(ciks: list[str]) -> duckdb.DuckDBPyConnection:
+    """In-memory `filings` and `holdings` for the seed CIKs, combining the
+    history backfill and the current full database. The two cover disjoint
+    filing-date windows, so an accession appears in only one of them."""
+    con = duckdb.connect()
+    con.execute(f"ATTACH '{FILINGS_DB_PATH}' AS cur (READ_ONLY)")
+    sources = ["cur"]
+    if HIST_DB.exists():
+        con.execute(f"ATTACH '{HIST_DB}' AS hist (READ_ONLY)")
+        sources.append("hist")
+    con.execute("CREATE TEMP TABLE seed_ciks AS SELECT unnest($c) AS cik", {"c": ciks})
+    for t in ("filings", "holdings"):
+        union = " UNION ALL ".join(
+            f"SELECT x.* FROM {s}.{t} x JOIN {s}.filings f USING (accession_number) "
+            f"WHERE f.cik IN (SELECT cik FROM seed_ciks)" if t == "holdings" else
+            f"SELECT * FROM {s}.filings WHERE cik IN (SELECT cik FROM seed_ciks)" for s in sources)
+        con.execute(f"CREATE TEMP TABLE {t} AS {union}")
+    dup = con.execute("SELECT count(*) - count(DISTINCT accession_number) FROM filings").fetchone()[0]
+    if dup:
+        raise RuntimeError(f"{dup} filings appear in both databases; the filing windows should be disjoint")
+    return con
+
+
+UNIT_ERROR_LOG = 2.5   # |log10 of median price ratio| above this (~316x) = a unit error
+
+
+def fix_unit_errors(positions: pl.DataFrame) -> tuple[pl.DataFrame, pl.DataFrame]:
+    """Find values off by 1000x and rescale them, row by row.
+
+    Some filers report dollars where the form asks for thousands (or the
+    reverse after 2023). Usually a whole filing is off, but some filings mix
+    units (seen: an amended filing with most rows in thousands and one row in
+    dollars). Every stock position implies a price per share (value / shares);
+    for each CUSIP and quarter the median implied price across all seed filers
+    is the consensus.
+    - Filing-level error: the filing's median row ratio is ~1000x (or 1/1000)
+      with >= 5 rows compared. All its rows are rescaled by that power, except
+      rows whose own ratio shows they are already right (mixed-unit filings).
+    - A lone deviating row in an otherwise correct filing is NOT rescaled:
+      checked against market prices, ~90% of those had a correct value and a
+      share count off by 1000 (shares reported in thousands). The row is
+      flagged `shares_suspect` instead, so share-based features skip it.
+    Returns (fixed positions, per-filing summary of corrections)."""
+    px = (positions.filter((pl.col("put_call") == "") & (pl.col("shares") > 0) & (pl.col("value_usd") > 0))
+          .with_columns((pl.col("value_usd") / pl.col("shares")).log10().alias("lp")))
+    consensus = (px.group_by("cusip", "quarter").agg(pl.col("lp").median().alias("lp_cons"),
+                                                     pl.col("cik").n_unique().alias("n_filers"))
+                 .filter(pl.col("n_filers") >= 3))
+    rows = (px.join(consensus, on=["cusip", "quarter"])
+            .with_columns((pl.col("lp") - pl.col("lp_cons")).alias("log_ratio"))
+            .select("cik", "quarter", "cusip", "put_call", "log_ratio"))
+    row_power = rows.with_columns(
+        pl.when(pl.col("log_ratio").abs() > UNIT_ERROR_LOG).then((pl.col("log_ratio") / 3).round())
+        .otherwise(0).cast(pl.Int32).alias("row_power")).select("cik", "quarter", "cusip", "put_call", "row_power")
+    filing = (rows.group_by("cik", "quarter").agg(pl.col("log_ratio").median().alias("log_ratio"),
+                                                  pl.len().alias("n_compared"))
+              .with_columns(pl.when((pl.col("log_ratio").abs() > UNIT_ERROR_LOG) & (pl.col("n_compared") >= 5))
+                            .then((pl.col("log_ratio") / 3).round()).otherwise(0).cast(pl.Int32)
+                            .alias("filing_power")))
+    fixed = (positions
+             .join(row_power, on=["cik", "quarter", "cusip", "put_call"], how="left")
+             .join(filing.select("cik", "quarter", "filing_power"), on=["cik", "quarter"], how="left")
+             .with_columns(pl.col("filing_power").fill_null(0))
+             .with_columns(
+                 # filing-level fix, unless the row's own evidence says it is already right
+                 pl.when(pl.col("filing_power") != 0)
+                 .then(pl.when(pl.col("row_power").is_null() | (pl.col("row_power") == pl.col("filing_power")))
+                       .then(pl.col("filing_power")).otherwise(0))
+                 .otherwise(0).cast(pl.Int32).alias("unit_fix_power"),
+                 # a lone deviating row in a correct filing: suspect share count
+                 ((pl.col("filing_power") == 0) & (pl.col("row_power").fill_null(0) != 0)).alias("shares_suspect"))
+             .with_columns((pl.col("value_usd") / (1000.0 ** pl.col("unit_fix_power"))).alias("value_usd"))
+             .drop("row_power", "filing_power"))
+    fixes = (fixed.filter(pl.col("unit_fix_power") != 0)
+             .group_by("cik", "quarter").agg(pl.len().alias("rows_fixed"),
+                                             pl.col("unit_fix_power").min().alias("min_power"),
+                                             pl.col("unit_fix_power").max().alias("max_power"))
+             .join(filing.select("cik", "quarter", "log_ratio", "n_compared", pl.col("filing_power").alias("power_of_1000")),
+                   on=["cik", "quarter"], how="left"))
+    return fixed, fixes
+
+
 def build() -> pl.DataFrame:
     seed = pl.read_csv(SEED_PATH, schema_overrides={"cik": pl.Utf8}).select("fund_name", "cik", "role")
-    filings = duckdb.connect(str(FILINGS_DB_PATH), read_only=True)
+    filings = seed_filings_db(seed["cik"].unique().to_list())
     frames = []
     for fund, cik, role in seed.iter_rows():
         for quarter in db.QUARTERS:
@@ -35,8 +121,14 @@ def build() -> pl.DataFrame:
         "fund_name", "cik", "role", "quarter", "known_at", "cusip", "put_call", "name_of_issuer",
         "shares", "principal", "value_usd", "weight",
     )
+    out, fixes = fix_unit_errors(out)
+    if len(fixes):
+        print("Unit errors corrected (value divided by 1000^power):")
+        with pl.Config(tbl_rows=50):
+            print(fixes.join(out.select("cik", "fund_name").unique(), on="cik").sort("fund_name", "quarter"))
     con = db.connect()
     con.execute("CREATE OR REPLACE TABLE seed_positions AS SELECT * FROM out")
+    con.execute("CREATE OR REPLACE TABLE unit_fixes AS SELECT * FROM fixes")
     return out
 
 

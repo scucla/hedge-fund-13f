@@ -31,6 +31,8 @@ LIST_PAGE = ("https://www.sec.gov/rules-regulations/staff-guidance/"
 LIST_DIR = Path("data/raw/sec13flist")
 FIGI_CACHE = Path("data/raw/openfigi/mapping.jsonl")
 TICKERS_PATH = Path("data/raw/sec/company_tickers.json")
+# Hand-reviewed fixes for CUSIPs OpenFIGI maps wrongly; they win over everything else.
+OVERRIDES_PATH = Path("data/reference/cusip_overrides.csv")
 
 FIGI_URL = "https://api.openfigi.com/v3/mapping"
 JOBS_PER_REQUEST = 100          # with an API key (10 without)
@@ -63,7 +65,9 @@ def download_13f_lists(quarters: list[str]) -> list[Path]:
         paths.append(path)
     missing = set(quarters) - {p.stem[-6:].upper() for p in paths}
     if missing:
-        raise RuntimeError(f"No 13(f) list found for {sorted(missing)}")
+        # The SEC posts text versions only for recent years (older lists are PDF).
+        # The list only adds descriptions, so older quarters go without.
+        print(f"  no 13(f) text list for {len(missing)} quarters ({min(missing)}..{max(missing)}); skipped")
     return paths
 
 
@@ -108,8 +112,7 @@ def openfigi_map(id_type: str, values: list[str], include_unlisted: bool = False
     cache = _cached_figi()
     todo = [v for v in dict.fromkeys(values) if (cache_type, v) not in cache]
     FIGI_CACHE.parent.mkdir(parents=True, exist_ok=True)
-    for i in range(0, len(todo), per_request):
-        batch = todo[i:i + per_request]
+    def post(batch):
         for attempt in range(5):
             resp = requests.post(FIGI_URL, json=[{"idType": id_type, "idValue": v, **extra} for v in batch],
                                  headers=headers, timeout=60)
@@ -117,11 +120,29 @@ def openfigi_map(id_type: str, values: list[str], include_unlisted: bool = False
                 break
             time.sleep(float(resp.headers.get("ratelimit-reset", 10)) + 1)
         resp.raise_for_status()
+        return resp.json()
+
+    queue = [todo[i:i + per_request] for i in range(0, len(todo), per_request)]
+    done_n = 0
+    while queue:
+        batch = queue.pop(0)
+        answers = post(batch)
+        # One answer per job, in order. If the counts differ, pairing them up would
+        # misattribute answers, so re-ask each identifier on its own.
+        if not isinstance(answers, list) or len(answers) != len(batch):
+            if len(batch) == 1:
+                answers = [{"error": f"unexpected response: {str(answers)[:200]}"}]
+            else:
+                print(f"  OpenFIGI returned {len(answers) if isinstance(answers, list) else 'no list'} answers "
+                      f"for {len(batch)} jobs; re-asking one by one")
+                queue = [[v] for v in batch] + queue
+                continue
         with FIGI_CACHE.open("a") as f:
-            for v, r in zip(batch, resp.json()):
+            for v, r in zip(batch, answers):
                 cache[(cache_type, v)] = r
                 f.write(json.dumps({"idType": cache_type, "idValue": v, "response": r}) + "\n")
-        print(f"  OpenFIGI {cache_type}: {min(i + per_request, len(todo)):,}/{len(todo):,}")
+        done_n += len(batch)
+        print(f"  OpenFIGI {cache_type}: {done_n:,}/{len(todo):,}")
         time.sleep(wait)
     return {v: cache[(cache_type, v)] for v in values}
 
@@ -176,8 +197,10 @@ def ticker_ciks() -> pl.DataFrame:
 
 
 FRAMES_DIR = Path("data/raw/edgar/frames")
-FRAMES = [("us-gaap", "CY2024Q4I"), ("us-gaap", "CY2025Q2I"), ("us-gaap", "CY2025Q4I"),
-          ("ifrs-full", "CY2024Q4I"), ("ifrs-full", "CY2025Q2I")]
+# Year-end balance sheets back to 2015, so companies acquired years ago (Aetna,
+# Monsanto) can still be matched by name.
+FRAMES = ([("us-gaap", f"CY{y}Q4I") for y in range(2014, 2026)] + [("us-gaap", "CY2025Q2I")]
+          + [("ifrs-full", f"CY{y}Q4I") for y in range(2017, 2026)])
 _SUFFIXES = {"INC", "CORP", "CORPORATION", "CO", "COMPANY", "LTD", "LIMITED", "PLC", "NV", "SA", "AG", "SE",
              "LLC", "LP", "THE", "CL", "CLASS", "A", "B", "C", "COM", "ISRAEL", "DE", "NEW"}
 
@@ -261,6 +284,22 @@ def build() -> pl.DataFrame:
                 by_cusip[c] = {"data": us, "_source": "openfigi_unlisted"}
             else:  # no US listing at all: keep the foreign listing, but use the common ticker
                 by_cusip[c] = by_cusip[c] | {"_source": "openfigi_foreign_listing", "_ticker": common_ticker(r)}
+    # CUSIPs retired by a corporate action (rename, reverse split, merger) are not
+    # found at all; with unlisted equities OpenFIGI often still knows the old
+    # security. Its ticker may since belong to another company, so these are
+    # marked "openfigi_retired": never priced by symbol, never given a CIK from
+    # the ticker file (only from the name match).
+    retired = [c for c, r in by_cusip.items() if best_listing(r) is None]
+    for id_type, ids in (("ID_CUSIP", [c for c in retired if not c[0].isalpha()]),
+                         ("ID_CINS", [c for c in retired if c[0].isalpha()])):
+        if not ids:
+            continue
+        for c, r in openfigi_map(id_type, ids, include_unlisted=True).items():
+            if not r.get("data"):
+                continue
+            us = [d for d in r["data"] if is_us_exchange(d.get("exchCode"))]
+            by_cusip[c] = {"data": us or r["data"], "_source": "openfigi_retired",
+                           **({} if us else {"_ticker": common_ticker(r)})}
     # Fallback: FIGIs that filers reported themselves for CUSIPs still unmapped.
     unmapped = [c for c, r in by_cusip.items() if best_listing(r) is None]
     filer_figis = con.execute("""
@@ -270,6 +309,10 @@ def build() -> pl.DataFrame:
     by_figi = openfigi_map("ID_BB_GLOBAL", filer_figis["figi"].to_list()) if len(filer_figis) else {}
     figi_for = dict(filer_figis.iter_rows())
 
+    overrides = {}
+    if OVERRIDES_PATH.exists():
+        overrides = dict(pl.read_csv(OVERRIDES_PATH, schema_overrides={"cusip": pl.Utf8}).select("cusip", "ticker").iter_rows())
+
     rows = []
     for cusip in universe["cusip"]:
         listing, source = best_listing(by_cusip[cusip]), by_cusip[cusip].get("_source", "openfigi_cusip")
@@ -277,15 +320,15 @@ def build() -> pl.DataFrame:
             listing, source = best_listing(by_figi.get(figi_for[cusip], {})), "openfigi_filer_figi"
         rows.append({
             "cusip": cusip,
-            "ticker": (by_cusip[cusip].get("_ticker") or listing.get("ticker")) if listing else None,
-            "exch_code": listing.get("exchCode") if listing else None,
+            "ticker": overrides.get(cusip) or ((by_cusip[cusip].get("_ticker") or listing.get("ticker")) if listing else None),
+            "exch_code": "US" if cusip in overrides else (listing.get("exchCode") if listing else None),
             "figi": listing.get("figi") if listing else None,
             "composite_figi": listing.get("compositeFIGI") if listing else None,
             "figi_name": listing.get("name") if listing else None,
             "security_type": listing.get("securityType") if listing else None,
             "security_type2": listing.get("securityType2") if listing else None,
             "market_sector": listing.get("marketSector") if listing else None,
-            "map_source": source if listing else None,
+            "map_source": "override" if cusip in overrides else (source if listing else None),
         })
     master = (
         universe.join(pl.DataFrame(rows), on="cusip", how="left")
@@ -306,6 +349,9 @@ def build() -> pl.DataFrame:
             .alias("security_class")
         )
         .join(ticker_ciks(), on="symbol", how="left")
+        # a retired security's old ticker may now be someone else's: no CIK by ticker
+        .with_columns(pl.when(pl.col("map_source") == "openfigi_retired").then(None)
+                      .otherwise(pl.col("issuer_cik")).alias("issuer_cik"))
         .with_columns(pl.lit(None, dtype=pl.Date).alias("known_at"))  # current mapping, not point-in-time
     )
     # Delisted issuers drop out of the SEC ticker file; recover their CIK by name.

@@ -100,12 +100,23 @@ def _read(path: Path) -> str:
     return f"read_csv('{path}', delim='\t', header=true, all_varchar=true, quote='')"
 
 
-def load_zip(con: duckdb.DuckDBPyConnection, zip_path: Path, work_dir: Path) -> None:
+def load_zip(con: duckdb.DuckDBPyConnection, zip_path: Path, work_dir: Path,
+             ciks: list[str] | None = None) -> None:
+    """Load one data set zip. With `ciks`, keep only those filers (the
+    seed-fund history backfill), so a file adds thousands of rows, not millions."""
+    cik_filter = ""
+    if ciks is not None:
+        quoted = ", ".join(f"'{c}'" for c in ciks)
+        cik_filter = f"AND lpad(s.CIK, 10, '0') IN ({quoted})"
     with tempfile.TemporaryDirectory(dir=work_dir) as tmp:
+        paths = {}
         with zipfile.ZipFile(zip_path) as zf:
+            # Most files keep the tables at the top level; some put them in a
+            # folder (01jun2025-31aug2025 has 01JUN2025-31AUG2025_form13f/...).
             for t in TABLES:
-                zf.extract(f"{t}.tsv", tmp)
-        sub, cov, info = (_read(Path(tmp) / f"{t}.tsv") for t in TABLES)
+                member = next(n for n in zf.namelist() if n.rsplit("/", 1)[-1] == f"{t}.tsv")
+                paths[t] = Path(zf.extract(member, tmp))
+        sub, cov, info = (_read(paths[t]) for t in TABLES)
 
         con.execute(f"""
             INSERT INTO filings
@@ -130,6 +141,7 @@ def load_zip(con: duckdb.DuckDBPyConnection, zip_path: Path, work_dir: Path) -> 
             WHERE s.SUBMISSIONTYPE IN ('13F-HR', '13F-HR/A')
               -- notice-only amendments carry no holdings
               AND c.REPORTTYPE <> '13F NOTICE'
+              {cik_filter}
         """)
 
         con.execute(f"""

@@ -62,7 +62,7 @@ def build(con) -> None:
     ratios = con.execute(f"""
         WITH px AS (SELECT symbol, {QIDX.format(q='quarter')} AS q_idx, close_q FROM returns_quarterly),
         cur AS (SELECT h.*, px.close_q FROM h JOIN px USING (symbol, q_idx)
-                WHERE h.put_call = '' AND h.shares > 0 AND h.value_usd > 0)
+                WHERE h.put_call = '' AND h.shares > 0 AND h.value_usd > 0 AND NOT h.shares_suspect)
         SELECT t.cusip, t.quarter, t.q_idx,
                median((t.shares / p.shares) / ((t.value_usd / t.close_q) / (p.value_usd / p.close_q))) AS median_ratio,
                count(*) AS n_funds
@@ -85,7 +85,8 @@ def build(con) -> None:
                    min(q_idx) OVER () AS first_q_idx
             FROM h
         ),
-        prev AS (SELECT fund_id, cusip, put_call, q_idx + 1 AS q_idx, qty AS prev_qty FROM h),
+        prev AS (SELECT fund_id, cusip, put_call, q_idx + 1 AS q_idx, qty AS prev_qty,
+                        shares_suspect AS prev_suspect FROM h),
         runs AS (
             -- gaps-and-islands: positions held in consecutive quarters share a run id
             SELECT fund_id, cusip, put_call, q_idx,
@@ -111,7 +112,10 @@ def build(con) -> None:
             row_number() OVER (PARTITION BY t.fund_id, t.quarter ORDER BY t.value_usd DESC, t.cusip, t.put_call) AS rank,
             p.prev_qty IS NULL AND t.q_idx > t.first_q_idx AS is_new,
             coalesce(s.split_ratio, 1.0) AS split_ratio,
-            CASE WHEN p.prev_qty > 0 THEN t.qty / (p.prev_qty * coalesce(s.split_ratio, 1.0)) - 1 END AS share_change,
+            -- no share change from a share count flagged as suspect (see universe.fix_unit_errors)
+            CASE WHEN p.prev_qty > 0 AND NOT t.shares_suspect AND NOT p.prev_suspect
+                 THEN t.qty / (p.prev_qty * coalesce(s.split_ratio, 1.0)) - 1 END AS share_change,
+            t.shares_suspect,
             a.age_q,
             a.run_start = t.first_q_idx AS age_censored,
             CASE WHEN t.put_call = '' THEN c.n_funds - 1 END AS crowding,

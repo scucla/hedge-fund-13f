@@ -68,3 +68,25 @@ def test_restatement_replaces_original_and_untyped_amendment_is_skipped(fake_db)
 def test_nothing_before_first_filing(fake_db):
     positions, _, _ = fund_holdings(fake_db, 1, "2026Q2", as_of=date(2026, 8, 9))
     assert positions.is_empty()
+
+
+def test_tables_inside_a_folder_in_the_zip(tmp_path):
+    """Some SEC files put the tables in a subfolder (01jun2025-31aug2025)."""
+    import zipfile
+
+    import duckdb
+
+    from src.ingest.load import build
+    from tests.conftest import write_fake_dataset
+
+    flat = tmp_path / "flat.zip"
+    write_fake_dataset(flat)
+    raw = tmp_path / "raw"
+    raw.mkdir()
+    with zipfile.ZipFile(flat) as src, zipfile.ZipFile(raw / "01jun2025-31aug2025_form13f.zip", "w") as dst:
+        for name in src.namelist():
+            dst.writestr(f"01JUN2025-31AUG2025_form13f/{name}", src.read(name))
+    db_path = tmp_path / "13f.duckdb"
+    build(raw, db_path)
+    con = duckdb.connect(str(db_path), read_only=True)
+    assert con.execute("SELECT count(*) FROM filings").fetchone()[0] == 7   # 8 minus the notice

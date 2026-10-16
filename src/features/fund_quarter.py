@@ -150,7 +150,8 @@ def build(con) -> None:
             SELECT fund_id, quarter, left(quarter, 4)::INT * 4 + right(quarter, 1)::INT AS q_idx,
                    cusip, symbol, value_usd, split_ratio,
                    CASE WHEN shares > 0 THEN shares ELSE principal END AS qty,
-                   NOT (shares > 0) AS by_value   -- bonds: principal units vary by filer, use values
+                   -- bonds (principal units vary by filer) and suspect share counts: use values
+                   NOT (shares > 0) OR coalesce(shares_suspect, false) AS by_value
             FROM longp
         ),
         rq AS (SELECT symbol, left(quarter, 4)::INT * 4 + right(quarter, 1)::INT AS q_idx, ret_q FROM returns_quarterly),

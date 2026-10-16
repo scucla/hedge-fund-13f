@@ -57,7 +57,7 @@ def test_turnover_and_active_share_by_hand():
         return {"fund_id": "f", "fund_name": "F", "quarter": q, "cusip": cusip, "put_call": "", "symbol": sym,
                 "security_key": sym, "security_class": "common", "issuer_cik": sym, "shares": shares,
                 "principal": 0.0, "value_usd": value, "weight_long": value / total, "is_option": False,
-                "split_ratio": 1.0, "known_at": date(2026, 8, 14) if q == "2026Q2" else date(2026, 5, 15)}
+                "split_ratio": 1.0, "shares_suspect": False, "known_at": date(2026, 8, 14) if q == "2026Q2" else date(2026, 5, 15)}
 
     positions = pl.DataFrame([
         pos("2026Q1", "A", "A", 100.0, 1000.0, 2000.0), pos("2026Q1", "B", "B", 50.0, 1000.0, 2000.0),
@@ -93,7 +93,7 @@ def test_gross_turnover_sees_one_sided_selling():
             rows.append({"fund_id": "f", "fund_name": "F", "quarter": q, "cusip": s, "put_call": "", "symbol": s,
                          "security_key": s, "security_class": "common", "issuer_cik": s, "shares": 100.0,
                          "principal": 0.0, "value_usd": 1000.0, "weight_long": 1 / len(held), "is_option": False,
-                         "split_ratio": 1.0, "known_at": date(2026, 8, 14)})
+                         "split_ratio": 1.0, "shares_suspect": False, "known_at": date(2026, 8, 14)})
     sq = pl.DataFrame([{"symbol": s, "quarter": q, "security_class": "common", "issuer_cik": s, "me": 100.0,
                         "log_me": 1.0, "bm": 0.5, "mom_12_1": 0.1, "gp_at": 0.2, "asset_growth": 0.1, "beta": 1.0,
                         "ff12_code": "BusEq"} for q in ("2026Q1", "2026Q2") for s in ("A", "B")])
@@ -191,7 +191,7 @@ def test_bond_principal_unit_change_is_not_a_trade():
     con = duckdb.connect()
     rows = [{"fund_id": "f", "fund_name": "F", "quarter": q, "cusip": "BOND", "put_call": "", "symbol": "BOND",
              "security_key": "BOND", "security_class": "debt", "issuer_cik": None, "shares": 0.0,
-             "principal": prn, "value_usd": 1000.0, "weight_long": 1.0, "is_option": False, "split_ratio": 1.0,
+             "principal": prn, "value_usd": 1000.0, "weight_long": 1.0, "is_option": False, "split_ratio": 1.0, "shares_suspect": False,
              "known_at": date(2026, 8, 14)}
             for q, prn in [("2026Q1", 1e6), ("2026Q2", 1e9)]]
     sq = pl.DataFrame([{"symbol": "X", "quarter": "2026Q2", "security_class": "common", "issuer_cik": "X", "me": 1.0,
@@ -204,3 +204,12 @@ def test_bond_principal_unit_change_is_not_a_trade():
         con.execute(f"CREATE TABLE {name} AS SELECT * FROM {name}_df")
     fund_quarter.build(con)
     assert con.execute("SELECT turnover, gross_turnover FROM fund_quarter WHERE quarter = '2026Q2'").fetchone() == (0.0, 0.0)
+
+
+def test_null_overlap_from_empty_filing_is_zero():
+    totals = pl.DataFrame({"fund_name": ["F", "F"], "quarter": ["2016Q1"] * 2, "cik": ["1", "2"],
+                           "role": ["primary", "predecessor"], "value_usd": [100.0, 0.0]})
+    overlaps = pl.DataFrame({"fund_name": ["F"], "quarter": ["2016Q1"], "cik_a": ["1"], "cik_b": ["2"],
+                             "overlap": [None]}, schema_overrides={"overlap": pl.Float64})
+    d = {r["cik"]: r for r in decide(totals, overlaps, set()).iter_rows(named=True)}
+    assert d["1"]["included"] and d["2"]["included"] and d["2"]["max_overlap"] == 0.0

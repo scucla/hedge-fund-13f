@@ -8,7 +8,19 @@ import duckdb
 from src.ingest.load import DB_PATH as FILINGS_DB_PATH
 
 DB_PATH = Path("data/processed/securities.duckdb")
-QUARTERS = ["2025Q3", "2025Q4", "2026Q1", "2026Q2"]
+FIRST_QUARTER, LAST_QUARTER = "2015Q1", "2026Q2"
+
+
+def _quarters(start: str, end: str) -> list[str]:
+    y, q = int(start[:4]), int(start[-1])
+    out = []
+    while f"{y}Q{q}" <= end:
+        out.append(f"{y}Q{q}")
+        y, q = (y + 1, 1) if q == 4 else (y, q + 1)
+    return out
+
+
+QUARTERS = _quarters(FIRST_QUARTER, LAST_QUARTER)
 
 
 def connect(read_only: bool = False) -> duckdb.DuckDBPyConnection:

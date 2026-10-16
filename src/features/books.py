@@ -40,7 +40,8 @@ def decide(totals: pl.DataFrame, overlaps: pl.DataFrame, excluded: set[tuple[str
     quarter, cik_a, cik_b, overlap. Returns one decision row per input row."""
     rows = []
     for (fund, quarter), grp in totals.group_by(["fund_name", "quarter"], maintain_order=True):
-        ov = overlaps.filter((pl.col("fund_name") == fund) & (pl.col("quarter") == quarter))
+        ov = (overlaps.filter((pl.col("fund_name") == fund) & (pl.col("quarter") == quarter))
+              .with_columns(pl.col("overlap").fill_null(0.0)))   # NULL (empty filing) = no overlap
         max_ov = {}
         for a, b, o in ov.select("cik_a", "cik_b", "overlap").iter_rows():
             max_ov[a] = max(max_ov.get(a, 0.0), o)
@@ -79,7 +80,9 @@ def build(con) -> None:
         WITH multi AS (SELECT fund_name, quarter FROM seed_positions GROUP BY ALL HAVING count(DISTINCT cik) > 1),
         p AS (SELECT s.fund_name, s.quarter, s.cik, s.cusip, s.put_call, s.weight
               FROM seed_positions s JOIN multi USING (fund_name, quarter))
-        SELECT a.fund_name, a.quarter, a.cik AS cik_a, b.cik AS cik_b, sum(least(a.weight, b.weight)) AS overlap
+        -- weights are NULL in an empty (zero-value) filing: that is zero overlap
+        SELECT a.fund_name, a.quarter, a.cik AS cik_a, b.cik AS cik_b,
+               coalesce(sum(least(a.weight, b.weight)), 0.0) AS overlap
         FROM p a JOIN p b ON a.fund_name = b.fund_name AND a.quarter = b.quarter AND a.cik < b.cik
                          AND a.cusip = b.cusip AND a.put_call = b.put_call
         GROUP BY ALL
@@ -93,7 +96,8 @@ def build(con) -> None:
         SELECT d.fund_id, any_value(d.fund_name) AS fund_name, s.quarter, s.cusip, s.put_call,
                any_value(s.name_of_issuer) AS name_of_issuer,
                sum(s.shares) AS shares, sum(s.principal) AS principal, sum(s.value_usd) AS value_usd,
-               max(s.known_at) AS known_at, count(DISTINCT s.cik) AS n_ciks
+               max(s.known_at) AS known_at, count(DISTINCT s.cik) AS n_ciks,
+               coalesce(bool_or(s.shares_suspect), false) AS shares_suspect
         FROM seed_positions s
         JOIN fund_book_decisions d ON d.fund_name = s.fund_name AND d.quarter = s.quarter AND d.cik = s.cik
         WHERE d.included
