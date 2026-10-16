@@ -246,10 +246,10 @@ The plan assumes about 8–10 hours a week over roughly 12 weeks. Each milestone
 - **Done when:** you have 3–4 clean charts you'd put in the README.
 
 ### Milestone 4: Strategy fingerprint, Task A (week 5)
-- [ ] Holdings-based factor tilts and a radar chart per fund.
-- [ ] Returns-based FF5+Mom regressions, compared with the holdings-based tilts.
-- [ ] Build weak labels (13D, merger targets, heuristics) and hand-label a test set.
-- [ ] Train LightGBM + SHAP; produce style-drift charts.
+- [x] Holdings-based factor tilts and a radar chart per fund.
+- [x] Returns-based FF5+Mom regressions, compared with the holdings-based tilts.
+- [ ] Build weak labels (13D, merger targets, heuristics) and hand-label a test set. (Done except merger-target labels.)
+- [x] Train LightGBM + SHAP; produce style-drift charts.
 - **Done when:** you can show "here's what Fund X really does, and here's why the model thinks so."
 
 ### Milestone 5: Embeddings and clustering, Task B (week 6)
