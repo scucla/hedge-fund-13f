@@ -44,7 +44,7 @@ WITH
 universe AS (
     SELECT DISTINCT p.cusip, p.quarter, m.symbol, m.security_class, m.issuer_cik,
            last_day(make_date(left(p.quarter, 4)::INT, right(p.quarter, 1)::INT * 3, 1)) AS q_end
-    FROM seed_positions p JOIN security_master m USING (cusip)
+    FROM {db.ALL_SEED_POSITIONS} p JOIN security_master m USING (cusip)
     WHERE m.symbol IS NOT NULL AND m.security_class IN {PRICED_CLASSES}
 ),
 daily AS (
@@ -209,6 +209,9 @@ LEFT JOIN rq nq ON nq.symbol = u.symbol AND nq.quarter =
 
 
 def build(con: duckdb.DuckDBPyConnection) -> None:
+    # The daily-return windows over ~21M price rows spill to disk; with fewer
+    # threads and no insertion order DuckDB needs far less temp space.
+    con.execute("SET preserve_insertion_order = false; SET threads = 4")
     con.execute(SQL)
 
 

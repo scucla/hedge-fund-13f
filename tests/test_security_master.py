@@ -47,26 +47,47 @@ def test_yahoo_symbol():
 
 # --- seed_positions -------------------------------------------------------------
 
+SEED_VIEWS = ["seed_positions", "seed_positions_pit"]
+
+
 @pytest.mark.data
-def test_seed_positions_unique_key(sec_db):
-    assert scalar(sec_db, """
-        SELECT count(*) FROM (SELECT cik, quarter, cusip, put_call FROM seed_positions
+@pytest.mark.parametrize("table", SEED_VIEWS)
+def test_seed_positions_unique_key(sec_db, table):
+    assert scalar(sec_db, f"""
+        SELECT count(*) FROM (SELECT cik, quarter, cusip, put_call FROM {table}
                               GROUP BY ALL HAVING count(*) > 1)""") == 0
 
 
 @pytest.mark.data
-def test_seed_positions_weights_sum_to_one(sec_db):
-    assert scalar(sec_db, """
-        SELECT count(*) FROM (SELECT cik, quarter, sum(weight) w FROM seed_positions GROUP BY ALL)
+@pytest.mark.parametrize("table", SEED_VIEWS)
+def test_seed_positions_weights_sum_to_one(sec_db, table):
+    assert scalar(sec_db, f"""
+        SELECT count(*) FROM (SELECT cik, quarter, sum(weight) w FROM {table} GROUP BY ALL)
         WHERE abs(w - 1) > 1e-9""") == 0
 
 
 @pytest.mark.data
-def test_seed_positions_no_null_cusips_and_known_at_after_quarter(sec_db):
-    assert scalar(sec_db, "SELECT count(*) FROM seed_positions WHERE cusip IS NULL OR cusip = ''") == 0
-    assert scalar(sec_db, """
-        SELECT count(*) FROM seed_positions
+@pytest.mark.parametrize("table", SEED_VIEWS)
+def test_seed_positions_no_null_cusips_and_known_at_after_quarter(sec_db, table):
+    assert scalar(sec_db, f"SELECT count(*) FROM {table} WHERE cusip IS NULL OR cusip = ''") == 0
+    assert scalar(sec_db, f"""
+        SELECT count(*) FROM {table}
         WHERE known_at <= last_day(make_date(left(quarter, 4)::INT, right(quarter, 1)::INT * 3, 1))""") == 0
+
+
+@pytest.mark.data
+def test_pit_view_is_never_later_than_latest_view(sec_db):
+    """The point-in-time view is as of the original filing, so its known_at can
+    only be on or before the latest view's, and the same filer-quarters exist."""
+    assert scalar(sec_db, """
+        SELECT count(*) FROM (SELECT cik, quarter, max(known_at) k FROM seed_positions GROUP BY ALL) a
+        FULL JOIN (SELECT cik, quarter, max(known_at) k FROM seed_positions_pit GROUP BY ALL) b USING (cik, quarter)
+        WHERE a.k IS NULL OR b.k IS NULL OR b.k > a.k""") == 0
+    # and amendments do make a difference somewhere, otherwise the two views are pointless
+    assert scalar(sec_db, """
+        SELECT count(*) FROM (SELECT cik, quarter, max(known_at) k FROM seed_positions GROUP BY ALL) a
+        JOIN (SELECT cik, quarter, max(known_at) k FROM seed_positions_pit GROUP BY ALL) b USING (cik, quarter)
+        WHERE b.k < a.k""") > 0
 
 
 # --- security_master ------------------------------------------------------------
@@ -75,7 +96,8 @@ def test_seed_positions_no_null_cusips_and_known_at_after_quarter(sec_db):
 def test_master_one_row_per_universe_cusip(sec_db):
     assert scalar(sec_db, "SELECT count(*) - count(DISTINCT cusip) FROM security_master") == 0
     assert scalar(sec_db, """
-        SELECT count(*) FROM (SELECT DISTINCT cusip FROM seed_positions) ANTI JOIN security_master USING (cusip)
+        SELECT count(*) FROM (SELECT cusip FROM seed_positions UNION SELECT cusip FROM seed_positions_pit)
+        ANTI JOIN security_master USING (cusip)
     """) == 0
 
 

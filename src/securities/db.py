@@ -22,6 +22,11 @@ def _quarters(start: str, end: str) -> list[str]:
 
 QUARTERS = _quarters(FIRST_QUARTER, LAST_QUARTER)
 
+# Both views of seed holdings (latest restated and as of the original filing;
+# see src.securities.universe). Securities are mapped and priced for either,
+# so a CUSIP that only an original filing listed still gets characteristics.
+ALL_SEED_POSITIONS = "(SELECT * FROM seed_positions UNION ALL BY NAME SELECT * FROM seed_positions_pit)"
+
 
 def connect(read_only: bool = False) -> duckdb.DuckDBPyConnection:
     DB_PATH.parent.mkdir(parents=True, exist_ok=True)

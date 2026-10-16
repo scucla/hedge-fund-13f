@@ -123,10 +123,10 @@ print(per_fund.group_by("style_guess").agg(
 # %% [markdown]
 # **Reading.** Over the full history the style medians are: activists 14
 # positions, concentrated value 28, growth/tech 36, healthcare 106, event-driven
-# 139, discretionary/other 336, multi-managers about 1,660 and quants about
+# 138, discretionary/other 336, multi-managers about 1,660 and quants about
 # 2,750 (Citadel's book is the largest, a median of about 4,900). Turnover does
 # not simply rise with breadth: multi-managers trade the most (51% of gross book
-# a quarter) and event-driven funds 43% (deals close and the book refreshes),
+# a quarter) and event-driven funds 42% (deals close and the book refreshes),
 # but quants trade only 26% (AQR 15%), and healthcare (16%) trades like
 # activists and concentrated value funds (16%). The outliers show how weak the
 # labels are: Mantle Ridge holds one stock at a time; Ancora, labelled
@@ -260,10 +260,14 @@ print(tilts.group_by("style_guess").agg([pl.col(f"tilt_{f}").median().round(2).a
 # size (style medians +0.9 to +1.2σ), the mechanical result of value-weighting
 # against an equal-weighted cross-section; the exceptions carry the information.
 # Event-driven funds are the clearest block: the merger-arbitrage shops (Glazer,
-# Water Island, Westchester, Pentwater, HBK) tilt small, low book-to-market, low
-# momentum and low beta (style medians −0.54, −0.52 and −0.57 for value,
-# momentum and beta), consistent with holding deal targets that move on deal
-# news rather than with the market. Healthcare funds tilt low on value and
+# Water Island, Westchester, Pentwater) tilt small, low book-to-market, low
+# momentum and low beta, consistent with holding deal targets that move on deal
+# news rather than with the market. The style medians (value −0.28, momentum
+# −0.19, beta −0.24) are about half what the restated filings show, because
+# these funds often get confidential treatment for deal positions and disclose
+# them in amendments months later (8.6% of event-driven value; Davidson
+# Kempner 38%, Taconic 28%, HBK 15%). The tilts here use only what was public
+# at the original filing. Healthcare funds tilt low on value and
 # profitability (both −0.38σ), which is biotech; their momentum tilt is neutral
 # over the full history (+0.02σ) although it was +1.09σ in 2026Q2 alone, a
 # reminder that one quarter is not a style. Growth/tech has the highest beta

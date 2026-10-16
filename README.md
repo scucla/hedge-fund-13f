@@ -2,7 +2,7 @@
 
 Infers hedge fund strategies from SEC 13F filings, clusters similar funds, and predicts next-quarter position changes. See [`docs/plan.md`](docs/plan.md) for the full plan and [`docs/decisions.md`](docs/decisions.md) for design choices.
 
-**Status:** Milestones 0–2 done; Milestone 3 features built for 2015Q1–2026Q2 (fund books, positions, fund-quarter features, EDA in `notebooks/`).
+**Status:** Milestones 0–3 done (features for 2015Q1–2026Q2, built point-in-time from original filings; EDA in `notebooks/`). Milestone 4 in progress: `fund_fingerprint` and a first LightGBM style classifier (`docs/style_classifier.md`).
 
 ## What 13F data can't tell you
 
@@ -44,4 +44,6 @@ uv run python -m src.securities.prices --start 2014-01-01 --slow          # one 
 uv run python -m src.features.books                                        # one book per fund-quarter
 uv run python -m src.features.positions                                    # fund x stock x quarter features
 uv run python -m src.features.fund_quarter                                 # fund x quarter features
+uv run python -m src.features.fingerprint                                  # Milestone 4 fingerprint (point-in-time)
+uv run python -m src.models.style_classifier                               # LightGBM style classifier + SHAP
 ```

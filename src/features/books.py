@@ -15,7 +15,8 @@ Rules, applied per fund-quarter (every decision is written to
 3. Everything else is a separate book of the same firm and is added up
    (e.g. Point72's regional entities, AQR vs AQR Arbitrage).
 
-Writes `fund_book_decisions` and `fund_holdings` (fund_id x quarter x CUSIP x
+Built from `seed_positions_pit` (holdings as of each original filing), so
+later amendments never reach the features. Writes `fund_book_decisions` and `fund_holdings` (fund_id x quarter x CUSIP x
 put/call) to the securities database.
 """
 
@@ -28,6 +29,7 @@ from src.securities import db
 
 EXCLUSIONS_PATH = Path("data/reference/fund_book_exclusions.csv")
 DUPLICATE_OVERLAP = 0.9
+SOURCE = "seed_positions_pit"   # point-in-time view; see src.securities.universe
 ROLE_RANK = {"primary": 0, "successor": 1, "affiliate": 2, "predecessor": 3}
 
 
@@ -72,14 +74,14 @@ def decide(totals: pl.DataFrame, overlaps: pl.DataFrame, excluded: set[tuple[str
 
 
 def build(con) -> None:
-    totals = con.execute("""
+    totals = con.execute(f"""
         SELECT fund_name, quarter, cik, role, sum(value_usd) AS value_usd
-        FROM seed_positions GROUP BY ALL ORDER BY fund_name, quarter, cik
+        FROM {SOURCE} GROUP BY ALL ORDER BY fund_name, quarter, cik
     """).pl()
-    overlaps = con.execute("""
-        WITH multi AS (SELECT fund_name, quarter FROM seed_positions GROUP BY ALL HAVING count(DISTINCT cik) > 1),
+    overlaps = con.execute(f"""
+        WITH multi AS (SELECT fund_name, quarter FROM {SOURCE} GROUP BY ALL HAVING count(DISTINCT cik) > 1),
         p AS (SELECT s.fund_name, s.quarter, s.cik, s.cusip, s.put_call, s.weight
-              FROM seed_positions s JOIN multi USING (fund_name, quarter))
+              FROM {SOURCE} s JOIN multi USING (fund_name, quarter))
         -- weights are NULL in an empty (zero-value) filing: that is zero overlap
         SELECT a.fund_name, a.quarter, a.cik AS cik_a, b.cik AS cik_b,
                coalesce(sum(least(a.weight, b.weight)), 0.0) AS overlap
@@ -91,14 +93,14 @@ def build(con) -> None:
     excluded = {(f, c.zfill(10)) for f, c in excl.select("fund_name", "cik").iter_rows()}
     decisions = decide(totals, overlaps, excluded)
     con.execute("CREATE OR REPLACE TABLE fund_book_decisions AS SELECT * FROM decisions")
-    con.execute("""
+    con.execute(f"""
         CREATE OR REPLACE TABLE fund_holdings AS
         SELECT d.fund_id, any_value(d.fund_name) AS fund_name, s.quarter, s.cusip, s.put_call,
                any_value(s.name_of_issuer) AS name_of_issuer,
                sum(s.shares) AS shares, sum(s.principal) AS principal, sum(s.value_usd) AS value_usd,
                max(s.known_at) AS known_at, count(DISTINCT s.cik) AS n_ciks,
                coalesce(bool_or(s.shares_suspect), false) AS shares_suspect
-        FROM seed_positions s
+        FROM {SOURCE} s
         JOIN fund_book_decisions d ON d.fund_name = s.fund_name AND d.quarter = s.quarter AND d.cik = s.cik
         WHERE d.included
           -- placeholder rows (no value, shares or principal) say "nothing to report"
@@ -107,17 +109,17 @@ def build(con) -> None:
     """)
     # A fund that filed a 13F-HR with nothing but a placeholder held no 13F
     # securities that quarter (e.g. it sold everything). Keep that fact.
-    con.execute("""
+    con.execute(f"""
         CREATE OR REPLACE TABLE empty_books AS
         SELECT d.fund_id, any_value(d.fund_name) AS fund_name, d.quarter, max(s.known_at) AS known_at
         FROM fund_book_decisions d
-        JOIN seed_positions s ON s.fund_name = d.fund_name AND s.quarter = d.quarter AND s.cik = d.cik
+        JOIN {SOURCE} s ON s.fund_name = d.fund_name AND s.quarter = d.quarter AND s.cik = d.cik
         WHERE d.included
         GROUP BY d.fund_id, d.quarter
         HAVING (d.fund_id, d.quarter) NOT IN (SELECT fund_id, quarter FROM fund_holdings)
     """)
     # every fund-quarter's known_at is the latest filing among its included CIKs
-    con.execute("""
+    con.execute(f"""
         UPDATE fund_holdings h SET known_at = k.known_at
         FROM (SELECT fund_id, quarter, max(known_at) AS known_at FROM fund_holdings GROUP BY ALL) k
         WHERE h.fund_id = k.fund_id AND h.quarter = k.quarter

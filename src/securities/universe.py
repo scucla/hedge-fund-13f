@@ -3,9 +3,16 @@
 Usage:
     uv run python -m src.securities.universe
 
-Writes `seed_positions` (one row per fund CIK, quarter, CUSIP, put/call) to
-the securities database, using the filing-selection rules in
-src.ingest.positions as of today. Seed-fund filings come from both the
+Writes two views of the same holdings (one row per fund CIK, quarter, CUSIP,
+put/call) to the securities database, using the filing-selection rules in
+src.ingest.positions:
+  seed_positions      as of today: the latest restated truth, including
+                      amendments filed months or years after the quarter
+  seed_positions_pit  as of the filer-quarter's original 13F-HR filing date:
+                      what the public could see when the quarter was first
+                      reported. Features are built from this one, so a later
+                      amendment never leaks into an earlier quarter.
+`known_at` is the latest filing used in each view. Seed-fund filings come from both the
 history backfill (data/interim/13f_history.duckdb, 2015 on) and the current
 full database (data/interim/13f.duckdb, the latest four filing windows,
 which also holds late filings and amendments for older quarters). Every mapped CIK is included, affiliates
@@ -17,7 +24,7 @@ import polars as pl
 
 from src.ingest.backfill import HIST_DB
 from src.ingest.load import DB_PATH as FILINGS_DB_PATH
-from src.ingest.positions import fund_holdings
+from src.ingest.positions import fund_holdings, normalize_cik
 from src.ingest.seed_ciks import SEED_PATH
 from src.securities import db
 
@@ -104,31 +111,49 @@ def fix_unit_errors(positions: pl.DataFrame) -> tuple[pl.DataFrame, pl.DataFrame
     return fixed, fixes
 
 
-def build() -> pl.DataFrame:
-    seed = pl.read_csv(SEED_PATH, schema_overrides={"cik": pl.Utf8}).select("fund_name", "cik", "role")
-    filings = seed_filings_db(seed["cik"].unique().to_list())
+def original_filing_dates(filings) -> dict[tuple[str, str], object]:
+    """(cik, quarter) -> date of the first original 13F-HR for that quarter."""
+    return {(c, q): d for c, q, d in filings.execute("""
+        SELECT cik, quarter, min(known_at) FROM filings WHERE submission_type = '13F-HR' GROUP BY ALL
+    """).fetchall()}
+
+
+def collect(seed: pl.DataFrame, filings, as_of: dict | None) -> pl.DataFrame:
+    """Holdings of every seed CIK x quarter, as of today (as_of None) or as of
+    the date that `as_of` gives for each (cik, quarter)."""
     frames = []
     for fund, cik, role in seed.iter_rows():
         for quarter in db.QUARTERS:
-            positions, used, _ = fund_holdings(filings, cik, quarter)
+            when = None if as_of is None else as_of.get((normalize_cik(cik), quarter))
+            if as_of is not None and when is None:
+                continue   # no original filing: nothing was public at the first report
+            positions, used, _ = fund_holdings(filings, cik, quarter, when)
             if positions.is_empty():
                 continue
             frames.append(positions.with_columns(
                 pl.lit(fund).alias("fund_name"), pl.lit(cik).alias("cik"), pl.lit(role).alias("role"),
                 pl.lit(quarter).alias("quarter"), pl.lit(used["known_at"].max()).alias("known_at"),
             ))
-    out = pl.concat(frames).select(
+    return pl.concat(frames).select(
         "fund_name", "cik", "role", "quarter", "known_at", "cusip", "put_call", "name_of_issuer",
         "shares", "principal", "value_usd", "weight",
     )
-    out, fixes = fix_unit_errors(out)
-    if len(fixes):
-        print("Unit errors corrected (value divided by 1000^power):")
-        with pl.Config(tbl_rows=50):
-            print(fixes.join(out.select("cik", "fund_name").unique(), on="cik").sort("fund_name", "quarter"))
+
+
+def build() -> pl.DataFrame:
+    seed = pl.read_csv(SEED_PATH, schema_overrides={"cik": pl.Utf8}).select("fund_name", "cik", "role")
+    filings = seed_filings_db(seed["cik"].unique().to_list())
     con = db.connect()
-    con.execute("CREATE OR REPLACE TABLE seed_positions AS SELECT * FROM out")
-    con.execute("CREATE OR REPLACE TABLE unit_fixes AS SELECT * FROM fixes")
+    out = None
+    for table, as_of in [("seed_positions", None), ("seed_positions_pit", original_filing_dates(filings))]:
+        view, fixes = fix_unit_errors(collect(seed, filings, as_of))
+        if len(fixes):
+            print(f"{table}: unit errors corrected (value divided by 1000^power):")
+            with pl.Config(tbl_rows=50):
+                print(fixes.join(view.select("cik", "fund_name").unique(), on="cik").sort("fund_name", "quarter"))
+        con.execute(f"CREATE OR REPLACE TABLE {table} AS SELECT * FROM view")
+        con.execute(f"CREATE OR REPLACE TABLE {table.replace('seed_positions', 'unit_fixes')} AS SELECT * FROM fixes")
+        out = out if out is not None else view
     return out
 
 

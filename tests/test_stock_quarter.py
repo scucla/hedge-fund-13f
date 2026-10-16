@@ -91,7 +91,7 @@ def make_tables(ff_until: date | None = None):
     returns = pl.DataFrame({"symbol": ["AAA", "AAA"], "quarter": ["2026Q1", "2026Q2"],
                             "ret_q": [0.05, 0.10], "known_at": [Q_END, date(2026, 6, 30)]})
 
-    tables = {"seed_positions": positions, "security_master": master, "prices_daily": prices,
+    tables = {"seed_positions": positions, "seed_positions_pit": positions, "security_master": master, "prices_daily": prices,
               "ff_factors_daily": ff, "fundamentals_facts": facts, "issuer_profile": profile,
               "ff12_sic_ranges": ff12, "returns_quarterly": returns}
     return tables, aaa_q_end

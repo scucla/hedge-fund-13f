@@ -252,10 +252,10 @@ def ciks_by_name(master: pl.DataFrame) -> dict[str, str]:
 
 def build() -> pl.DataFrame:
     con = db.connect()
-    universe = con.execute("""
+    universe = con.execute(f"""
         SELECT cusip, any_value(name_of_issuer) AS name_of_issuer,
                bool_and(put_call = '' AND shares = 0 AND principal > 0) AS principal_only
-        FROM seed_positions GROUP BY cusip
+        FROM {db.ALL_SEED_POSITIONS} GROUP BY cusip
     """).pl()
 
     lists = pl.concat([parse_13f_list(p) for p in download_13f_lists(db.QUARTERS)])
