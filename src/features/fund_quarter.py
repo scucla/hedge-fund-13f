@@ -31,6 +31,7 @@ Concentration, turnover, active share and factor tilts use the long book
                      securities with no industry (ETFs, funds, unmapped)
   options_share      value of put/call rows / total reported value
   known_at           the fund-quarter's filing date
+  cohort             'seed' or 'holdout' (hand-labelled funds kept out of training)
 """
 
 import polars as pl
@@ -51,36 +52,57 @@ BENCH_SIZE = 500
 
 def build(con) -> None:
     # --- stock z-scores per quarter ---------------------------------------------------
+    # The cross-section is the stocks held by seed funds (either holdings view).
+    # Holdout funds' stocks get z-scores from the same mean/sd/bounds but never
+    # shift them, so adding holdout funds leaves every seed feature unchanged.
+    con.execute(f"""
+        CREATE OR REPLACE TEMP TABLE seed_held AS
+        SELECT DISTINCT p.cusip, p.quarter, m.symbol
+        FROM {db.ALL_SEED_POSITIONS} p JOIN security_master m USING (cusip)
+        WHERE p.cohort = 'seed'
+    """)
     raw = ", ".join(f"{expr} AS {name}" for name, expr in FACTORS.items())
     con.execute(f"""
         CREATE OR REPLACE TEMP TABLE stock_x AS
-        SELECT DISTINCT ON (symbol, quarter) symbol, quarter, {raw}, ff12_code
+        SELECT DISTINCT ON (symbol, quarter) symbol, quarter, {raw}, ff12_code,
+               -- by CUSIP, not ticker: a share class only a holdout fund holds is not seed-held
+               (cusip, quarter) IN (SELECT (cusip, quarter) FROM seed_held) AS in_seed
         FROM stock_quarter WHERE security_class = 'common'
-        ORDER BY symbol, quarter, me DESC NULLS LAST
+        -- one row per ticker: a CUSIP seed funds hold first (so a holdout-only share
+        -- class can't replace it), then the largest market cap, then the CUSIP itself
+        ORDER BY symbol, quarter, (cusip, quarter) IN (SELECT (cusip, quarter) FROM seed_held) DESC,
+                 me DESC NULLS LAST, cusip
     """)
-    zcols = []
+    zcols, joins = [], []
     for name in FACTORS:
         con.execute(f"""
-            CREATE OR REPLACE TEMP TABLE bounds_{name} AS
-            SELECT quarter, quantile_cont({name}, 0.01) AS lo, quantile_cont({name}, 0.99) AS hi
-            FROM stock_x GROUP BY quarter
+            CREATE OR REPLACE TEMP TABLE stats_{name} AS
+            WITH b AS (
+                SELECT quarter, quantile_cont({name}, 0.01) AS lo, quantile_cont({name}, 0.99) AS hi
+                FROM stock_x WHERE in_seed GROUP BY quarter
+            )
+            SELECT b.quarter, b.lo, b.hi,
+                   avg(least(greatest(x.{name}, b.lo), b.hi)) AS mu,
+                   stddev_samp(least(greatest(x.{name}, b.lo), b.hi)) AS sd
+            FROM b JOIN stock_x x ON x.quarter = b.quarter AND x.in_seed
+            GROUP BY ALL
         """)
-        zcols.append(f"""(least(greatest(x.{name}, b_{name}.lo), b_{name}.hi)
-              - avg(least(greatest(x.{name}, b_{name}.lo), b_{name}.hi)) OVER (PARTITION BY x.quarter))
-              / stddev_samp(least(greatest(x.{name}, b_{name}.lo), b_{name}.hi)) OVER (PARTITION BY x.quarter) AS z_{name}""")
-    joins = " ".join(f"JOIN bounds_{n} b_{n} USING (quarter)" for n in FACTORS)
+        zcols.append(f"(least(greatest(x.{name}, s_{name}.lo), s_{name}.hi) - s_{name}.mu) / s_{name}.sd AS z_{name}")
+        joins.append(f"JOIN stats_{name} s_{name} USING (quarter)")
     con.execute(f"""
         CREATE OR REPLACE TABLE stock_zscores AS
-        SELECT x.symbol, x.quarter, x.ff12_code, {", ".join(zcols)}
-        FROM stock_x x {joins}
+        SELECT x.symbol, x.quarter, x.ff12_code, x.in_seed, {", ".join(zcols)}
+        FROM stock_x x {" ".join(joins)}
     """)
 
-    # --- benchmark: 500 largest issuers ------------------------------------------------
+    # --- benchmark: 500 largest issuers held by seed funds ------------------------------
     con.execute(f"""
         CREATE OR REPLACE TABLE benchmark_weights AS
         WITH issuers AS (
             SELECT quarter, issuer_cik, max(me) AS me FROM stock_quarter
-            WHERE security_class = 'common' AND me > 0 AND issuer_cik IS NOT NULL GROUP BY ALL
+            WHERE security_class = 'common' AND me > 0 AND issuer_cik IS NOT NULL
+              AND (cusip, quarter) IN (SELECT (cusip, quarter) FROM seed_held)
+            GROUP BY ALL
         ),
         top AS (SELECT *, row_number() OVER (PARTITION BY quarter ORDER BY me DESC) AS rk FROM issuers)
         SELECT quarter, issuer_cik AS issuer_key, me / sum(me) OVER (PARTITION BY quarter) AS w_bench
@@ -104,7 +126,8 @@ def build(con) -> None:
             FROM p WHERE NOT is_option
         ),
         basic AS (
-            SELECT fund_id, quarter, any_value(fund_name) AS fund_name, max(known_at) AS known_at,
+            SELECT fund_id, quarter, any_value(fund_name) AS fund_name, any_value(cohort) AS cohort,
+                   max(known_at) AS known_at,
                    count(*) FILTER (WHERE NOT is_option) AS n_positions,
                    count(*) FILTER (WHERE is_option) AS n_option_rows,
                    sum(value_usd) AS total_value,
@@ -122,7 +145,9 @@ def build(con) -> None:
             SELECT p.fund_id, p.quarter, {tilt_sel},
                    {sector_sel},
                    coalesce(sum(p.weight_long) FILTER (WHERE z.ff12_code IS NULL), 0) AS sector_none
-            FROM longp p LEFT JOIN stock_zscores z USING (symbol, quarter)
+            -- seed funds use only seed-held rows (the cross-section they define); holdout funds use all
+            FROM longp p LEFT JOIN stock_zscores z ON z.symbol = p.symbol AND z.quarter = p.quarter
+                                                  AND (z.in_seed OR p.cohort = 'holdout')
             GROUP BY ALL
         ),
         fund_issuer AS (
@@ -205,7 +230,7 @@ def build(con) -> None:
         # So turnover (min) is 0 and gross turnover is 1, when last quarter was filed.
         con.execute("""
             INSERT INTO fund_quarter BY NAME
-            SELECT e.fund_id, e.quarter, e.fund_name, e.known_at, 0 AS n_positions, 0 AS n_option_rows,
+            SELECT e.fund_id, e.quarter, e.fund_name, e.cohort, e.known_at, 0 AS n_positions, 0 AS n_option_rows,
                    0.0 AS total_value, 0.0 AS long_value,
                    CASE WHEN p.long_value > 0 THEN 0.0 END AS turnover,
                    CASE WHEN p.long_value > 0 THEN 1.0 END AS gross_turnover

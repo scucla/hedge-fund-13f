@@ -12,7 +12,15 @@ src.ingest.positions:
                       what the public could see when the quarter was first
                       reported. Features are built from this one, so a later
                       amendment never leaks into an earlier quarter.
-`known_at` is the latest filing used in each view. Seed-fund filings come from both the
+`known_at` is the latest filing used in each view.
+
+Both views also hold the hand-labelled holdout funds (data/reference/
+holdout_funds.csv, `cohort` = 'holdout', from HOLDOUT_FIRST_QUARTER on) so
+their features are computed exactly like the seed funds'. Everything that
+defines a cross-section (crowding, factor z-scores, the active-share
+benchmark) uses seed funds only, and models never train on holdout rows.
+
+Seed-fund filings come from both the
 history backfill (data/interim/13f_history.duckdb, 2015 on) and the current
 full database (data/interim/13f.duckdb, the latest four filing windows,
 which also holds late filings and amendments for older quarters). Every mapped CIK is included, affiliates
@@ -22,11 +30,26 @@ too; de-duplicating parallel filers is left to the feature milestone.
 import duckdb
 import polars as pl
 
-from src.ingest.backfill import HIST_DB
+from src.ingest.backfill import HIST_DB, HOLDOUT_DB, HOLDOUT_PATH
 from src.ingest.load import DB_PATH as FILINGS_DB_PATH
 from src.ingest.positions import fund_holdings, normalize_cik
 from src.ingest.seed_ciks import SEED_PATH
 from src.securities import db
+
+
+HOLDOUT_FIRST_QUARTER = "2020Q1"   # their history backfill starts here (12 quarters before the 2023 test years)
+
+
+def funds() -> pl.DataFrame:
+    """fund_name, cik, role, cohort for the seed funds and the holdout funds."""
+    seed = (pl.read_csv(SEED_PATH, schema_overrides={"cik": pl.Utf8}).select("fund_name", "cik", "role")
+            .with_columns(pl.lit("seed").alias("cohort")))
+    hold = (pl.read_csv(HOLDOUT_PATH, schema_overrides={"cik": pl.Utf8})
+            .select("fund_name", "cik", pl.lit("primary").alias("role"), pl.lit("holdout").alias("cohort")))
+    overlap = set(seed["cik"].str.zfill(10)) & set(hold["cik"].str.zfill(10))
+    if overlap:
+        raise ValueError(f"holdout CIKs also in the seed list: {sorted(overlap)}")
+    return pl.concat([seed, hold])
 
 
 def seed_filings_db(ciks: list[str]) -> duckdb.DuckDBPyConnection:
@@ -39,6 +62,9 @@ def seed_filings_db(ciks: list[str]) -> duckdb.DuckDBPyConnection:
     if HIST_DB.exists():
         con.execute(f"ATTACH '{HIST_DB}' AS hist (READ_ONLY)")
         sources.append("hist")
+    if HOLDOUT_DB.exists():
+        con.execute(f"ATTACH '{HOLDOUT_DB}' AS hold (READ_ONLY)")
+        sources.append("hold")
     con.execute("CREATE TEMP TABLE seed_ciks AS SELECT unnest($c) AS cik", {"c": ciks})
     for t in ("filings", "holdings"):
         union = " UNION ALL ".join(
@@ -74,7 +100,9 @@ def fix_unit_errors(positions: pl.DataFrame) -> tuple[pl.DataFrame, pl.DataFrame
     Returns (fixed positions, per-filing summary of corrections)."""
     px = (positions.filter((pl.col("put_call") == "") & (pl.col("shares") > 0) & (pl.col("value_usd") > 0))
           .with_columns((pl.col("value_usd") / pl.col("shares")).log10().alias("lp")))
-    consensus = (px.group_by("cusip", "quarter").agg(pl.col("lp").median().alias("lp_cons"),
+    # consensus from seed filers only, so adding holdout funds can't move a seed correction
+    seed_px = px.filter(pl.col("cohort") == "seed") if "cohort" in px.columns else px
+    consensus = (seed_px.group_by("cusip", "quarter").agg(pl.col("lp").median().alias("lp_cons"),
                                                      pl.col("cik").n_unique().alias("n_filers"))
                  .filter(pl.col("n_filers") >= 3))
     rows = (px.join(consensus, on=["cusip", "quarter"])
@@ -122,8 +150,10 @@ def collect(seed: pl.DataFrame, filings, as_of: dict | None) -> pl.DataFrame:
     """Holdings of every seed CIK x quarter, as of today (as_of None) or as of
     the date that `as_of` gives for each (cik, quarter)."""
     frames = []
-    for fund, cik, role in seed.iter_rows():
+    for fund, cik, role, cohort in seed.iter_rows():
         for quarter in db.QUARTERS:
+            if cohort == "holdout" and quarter < HOLDOUT_FIRST_QUARTER:
+                continue
             when = None if as_of is None else as_of.get((normalize_cik(cik), quarter))
             if as_of is not None and when is None:
                 continue   # no original filing: nothing was public at the first report
@@ -132,16 +162,17 @@ def collect(seed: pl.DataFrame, filings, as_of: dict | None) -> pl.DataFrame:
                 continue
             frames.append(positions.with_columns(
                 pl.lit(fund).alias("fund_name"), pl.lit(cik).alias("cik"), pl.lit(role).alias("role"),
+                pl.lit(cohort).alias("cohort"),
                 pl.lit(quarter).alias("quarter"), pl.lit(used["known_at"].max()).alias("known_at"),
             ))
     return pl.concat(frames).select(
-        "fund_name", "cik", "role", "quarter", "known_at", "cusip", "put_call", "name_of_issuer",
+        "fund_name", "cik", "role", "cohort", "quarter", "known_at", "cusip", "put_call", "name_of_issuer",
         "shares", "principal", "value_usd", "weight",
     )
 
 
 def build() -> pl.DataFrame:
-    seed = pl.read_csv(SEED_PATH, schema_overrides={"cik": pl.Utf8}).select("fund_name", "cik", "role")
+    seed = funds()
     filings = seed_filings_db(seed["cik"].unique().to_list())
     con = db.connect()
     out = None

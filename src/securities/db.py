@@ -1,13 +1,15 @@
 """The securities database: Milestone 2 tables, kept apart from the 13F
 database because src.ingest.load rebuilds that one from scratch."""
 
+import os
 from pathlib import Path
 
 import duckdb
 
 from src.ingest.load import DB_PATH as FILINGS_DB_PATH
 
-DB_PATH = Path("data/processed/securities.duckdb")
+# overridable so a seed-only copy can be built side by side (holdout invariance check)
+DB_PATH = Path(os.environ.get("SECURITIES_DB", "data/processed/securities.duckdb"))
 FIRST_QUARTER, LAST_QUARTER = "2015Q1", "2026Q2"
 
 

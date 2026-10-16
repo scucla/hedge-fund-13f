@@ -326,3 +326,11 @@ def test_lone_deviating_row_is_flagged_not_rescaled():
     d0 = fixed.filter((_pl.col("cik") == "D") & (_pl.col("cusip") == "S0")).row(0, named=True)
     assert d0["value_usd"] == 1000.0 and d0["unit_fix_power"] == 0 and d0["shares_suspect"] is True
     assert not fixed.filter(_pl.col("cik") != "D")["shares_suspect"].any()
+
+
+def test_common_ticker_ties_are_deterministic():
+    # two listings each: no majority. Must not depend on set order (string hashing is randomized per run)
+    resp = {"data": [{"ticker": "NDLSGBP"}, {"ticker": "NDLSUSD"}, {"ticker": "NDLSGBP"}, {"ticker": "NDLSUSD"}]}
+    assert common_ticker(resp) == "NDLSGBP"
+    resp = {"data": [{"ticker": "HONGBP"}, {"ticker": "HON"}]}
+    assert common_ticker(resp) == "HON"

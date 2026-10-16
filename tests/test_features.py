@@ -16,6 +16,23 @@ def scalar(con, sql):
     return con.execute(sql).fetchone()[0]
 
 
+def load_feature_tables(con, positions: pl.DataFrame, sq: pl.DataFrame, rq: pl.DataFrame) -> None:
+    """Create the tables fund_quarter.build reads. In the real pipeline the
+    stock universe (stock_quarter) is exactly what seed funds hold, so the
+    seed holdings views are derived from `sq`; every fixture fund is a seed fund."""
+    if "cohort" not in positions.columns:
+        positions = positions.with_columns(pl.lit("seed").alias("cohort"))
+    if "cusip" not in sq.columns:
+        sq = sq.with_columns(pl.col("symbol").alias("cusip"))
+    held = sq.select("cusip", "quarter", pl.lit("seed").alias("cohort"))
+    master = pl.concat([sq.select("cusip", "symbol"), positions.select("cusip", "symbol")]).unique()
+    tables = {"positions": positions, "stock_quarter": sq, "returns_quarterly": rq,
+              "seed_positions": held, "seed_positions_pit": held, "security_master": master}
+    for name, df in tables.items():
+        con.register(f"{name}_df", df)
+        con.execute(f"CREATE TABLE {name} AS SELECT * FROM {name}_df")
+
+
 # --- units --------------------------------------------------------------------------
 
 def test_duplicate_book_keeps_primary_and_separate_books_are_added():
@@ -69,9 +86,7 @@ def test_turnover_and_active_share_by_hand():
         for q in ("2026Q1", "2026Q2") for i, (s, me) in enumerate([("A", 300.0), ("B", 100.0), ("C", 100.0)])
     ])
     rq = pl.DataFrame({"symbol": ["A", "B", "C"], "quarter": ["2026Q2"] * 3, "ret_q": [0.0, 0.0, 0.0]})
-    for name, df in {"positions": positions, "stock_quarter": sq, "returns_quarterly": rq}.items():
-        con.register(f"{name}_df", df)
-        con.execute(f"CREATE TABLE {name} AS SELECT * FROM {name}_df")
+    load_feature_tables(con, positions, sq, rq)
     fund_quarter.build(con)
     row = con.execute("SELECT turnover, active_share, top10_weight, hhi FROM fund_quarter WHERE quarter = '2026Q2'").fetchone()
     assert row[0] == pytest.approx(0.5)
@@ -98,9 +113,7 @@ def test_gross_turnover_sees_one_sided_selling():
                         "log_me": 1.0, "bm": 0.5, "mom_12_1": 0.1, "gp_at": 0.2, "asset_growth": 0.1, "beta": 1.0,
                         "ff12_code": "BusEq"} for q in ("2026Q1", "2026Q2") for s in ("A", "B")])
     rq = pl.DataFrame({"symbol": ["A", "B"], "quarter": ["2026Q2"] * 2, "ret_q": [0.0, 0.0]})
-    for name, df in {"positions": pl.DataFrame(rows), "stock_quarter": sq, "returns_quarterly": rq}.items():
-        con.register(f"{name}_df", df)
-        con.execute(f"CREATE TABLE {name} AS SELECT * FROM {name}_df")
+    load_feature_tables(con, pl.DataFrame(rows), sq, rq)
     fund_quarter.build(con)
     turnover, gross = con.execute(
         "SELECT turnover, gross_turnover FROM fund_quarter WHERE quarter = '2026Q2'").fetchone()
@@ -199,9 +212,7 @@ def test_bond_principal_unit_change_is_not_a_trade():
                         "ff12_code": "BusEq"}])
     rq = pl.DataFrame({"symbol": ["BOND"], "quarter": ["2026Q2"], "ret_q": [0.0]})
     positions = pl.DataFrame(rows, schema_overrides={"issuer_cik": pl.Utf8})  # all-NULL column needs a type
-    for name, df in {"positions": positions, "stock_quarter": sq, "returns_quarterly": rq}.items():
-        con.register(f"{name}_df", df)
-        con.execute(f"CREATE TABLE {name} AS SELECT * FROM {name}_df")
+    load_feature_tables(con, positions, sq, rq)
     fund_quarter.build(con)
     assert con.execute("SELECT turnover, gross_turnover FROM fund_quarter WHERE quarter = '2026Q2'").fetchone() == (0.0, 0.0)
 

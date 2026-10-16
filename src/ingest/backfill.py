@@ -2,12 +2,16 @@
 
 Usage:
     uv run python -m src.ingest.backfill --start 2015Q1 --end 2025Q2
+    uv run python -m src.ingest.backfill --holdout --start 2020Q1 --end 2025Q2
 
 For each SEC data set file the holdings quarters need: download it, load only
 the rows filed by a seed-fund CIK (every CIK in data/reference/seed_cik_map.csv,
 predecessors included) into data/interim/13f_history.duckdb, commit, then delete
 the zip. `loaded_files` records each finished file, so an interrupted run
-resumes where it stopped. Before each file, free disk space is checked.
+resumes where it stopped. With --holdout the same is done for the hand-labelled
+holdout funds (data/reference/holdout_funds.csv) into a separate database,
+data/interim/13f_holdout_history.duckdb, so they can never mix with the seed
+funds' history. Before each file, free disk space is checked.
 
 Same tables and rules as src.ingest.load (values normalized to dollars by
 filing date, notices dropped, known_at = filing date). Filings that arrived
@@ -26,6 +30,8 @@ from src.ingest.download import dataset_for_quarter, download, list_datasets, qu
 from src.ingest.load import HOLDINGS_SQL, SCHEMA, load_zip
 
 HIST_DB = Path("data/interim/13f_history.duckdb")
+HOLDOUT_DB = Path("data/interim/13f_holdout_history.duckdb")
+HOLDOUT_PATH = Path("data/reference/holdout_funds.csv")
 SEED_MAP = Path("data/reference/seed_cik_map.csv")
 MIN_FREE_GB = 3.0
 
@@ -34,13 +40,17 @@ def seed_ciks() -> list[str]:
     return sorted({c.zfill(10) for c in pl.read_csv(SEED_MAP, schema_overrides={"cik": pl.Utf8})["cik"]})
 
 
+def holdout_ciks() -> list[str]:
+    return sorted({c.zfill(10) for c in pl.read_csv(HOLDOUT_PATH, schema_overrides={"cik": pl.Utf8})["cik"]})
+
+
 def free_gb(path: Path) -> float:
     return shutil.disk_usage(path).free / 1e9
 
 
-def open_db() -> duckdb.DuckDBPyConnection:
-    HIST_DB.parent.mkdir(parents=True, exist_ok=True)
-    con = duckdb.connect(str(HIST_DB))
+def open_db(path: Path = HIST_DB) -> duckdb.DuckDBPyConnection:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    con = duckdb.connect(str(path))
     have = {r[0] for r in con.execute("SELECT table_name FROM information_schema.tables").fetchall()}
     if "filings" not in have:
         con.execute(SCHEMA)
@@ -52,18 +62,19 @@ def open_db() -> duckdb.DuckDBPyConnection:
     return con
 
 
-def build(start: str, end: str) -> None:
+def build(start: str, end: str, holdout: bool = False) -> None:
     datasets = list_datasets()
     files = []
     for y, q in quarters_between(start, end):
         ds = dataset_for_quarter(datasets, y, q)
         if ds not in files:
             files.append(ds)
-    ciks = seed_ciks()
-    con = open_db()
+    ciks = holdout_ciks() if holdout else seed_ciks()
+    db_path = HOLDOUT_DB if holdout else HIST_DB
+    con = open_db(db_path)
     done = {r[0] for r in con.execute("SELECT source_file FROM loaded_files").fetchall()}
     print(f"{len(files)} data set files for {start}..{end}; {len(done & {f.filename for f in files})} already loaded; "
-          f"{len(ciks)} seed CIKs")
+          f"{len(ciks)} {'holdout' if holdout else 'seed'} CIKs -> {db_path}")
     for i, ds in enumerate(files, 1):
         if ds.filename in done:
             continue
@@ -85,7 +96,7 @@ def build(start: str, end: str) -> None:
             con.execute("ROLLBACK")
             raise
         zip_path.unlink()  # loaded and committed: the zip is no longer needed
-        print(f"[{i}/{len(files)}] {ds.filename}: {n_f} seed filings, {n_r:,} rows; "
+        print(f"[{i}/{len(files)}] {ds.filename}: {n_f} filings, {n_r:,} rows; "
               f"{free_gb(HIST_DB.parent):.1f} GB free")
     con.close()
 
@@ -94,5 +105,6 @@ if __name__ == "__main__":
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--start", default="2015Q1")
     ap.add_argument("--end", default="2025Q2")
+    ap.add_argument("--holdout", action="store_true", help="load the holdout funds into their own database")
     args = ap.parse_args()
-    build(args.start, args.end)
+    build(args.start, args.end, args.holdout)

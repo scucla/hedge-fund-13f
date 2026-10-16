@@ -55,7 +55,7 @@ def build(con) -> None:
     con.execute(f"""
         CREATE OR REPLACE TABLE fund_fingerprint AS
         WITH p AS (
-            SELECT p.fund_id, p.quarter, p.known_at, p.symbol, p.cusip, p.weight_long, p.age_q,
+            SELECT p.fund_id, p.quarter, p.cohort, p.known_at, p.symbol, p.cusip, p.weight_long, p.age_q,
                    s.known_at AS stock_known_at, s.fundamentals_known_at
             FROM positions p
             LEFT JOIN stock_quarter s USING (cusip, quarter)
@@ -78,6 +78,7 @@ def build(con) -> None:
                        AS max_stock_known_at
             FROM pit p
             LEFT JOIN stock_zscores z ON z.symbol = p.symbol AND z.quarter = p.quarter AND p.chars_known
+                                     AND (z.in_seed OR p.cohort = 'holdout')   -- as in fund_quarter
             GROUP BY ALL
         ),
         prior AS (
@@ -87,7 +88,7 @@ def build(con) -> None:
             JOIN fund_quarter b ON b.fund_id = a.fund_id AND b.quarter < a.quarter
             GROUP BY ALL
         )
-        SELECT f.fund_id, f.quarter, f.fund_name, f.known_at,
+        SELECT f.fund_id, f.quarter, f.fund_name, f.cohort, f.known_at,
                f.n_positions, ln(greatest(f.n_positions, 1)) AS log_n_positions, f.top10_weight, f.hhi,
                f.active_share, f.turnover, f.gross_turnover,
                a.* EXCLUDE (fund_id, quarter, max_stock_known_at),

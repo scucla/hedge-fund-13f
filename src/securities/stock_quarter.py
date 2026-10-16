@@ -29,6 +29,8 @@ Features:
   sic, ff12      SIC code from EDGAR, mapped to Fama-French 12 industries
 """
 
+import shutil
+
 import duckdb
 
 from src.securities import db
@@ -38,37 +40,43 @@ STALE_PRICE_DAYS = 10   # a "quarter-end price" must be from the last 10 days
 MIN_BETA_DAYS = 120
 STALE_FUNDAMENTALS_DAYS = 550  # ignore balance sheets older than ~18 months
 
+DAILY_SQL = """
+CREATE OR REPLACE TEMP TABLE daily AS
+SELECT symbol, date, close,
+       close / lag(close) OVER w - 1 AS ret,
+       date - lag(date) OVER w AS gap
+FROM prices_daily WINDOW w AS (PARTITION BY symbol ORDER BY date)
+"""
+
 SQL = f"""
-CREATE OR REPLACE TABLE stock_quarter AS
+CREATE OR REPLACE TEMP TABLE sq_chunk AS
 WITH
 universe AS (
     SELECT DISTINCT p.cusip, p.quarter, m.symbol, m.security_class, m.issuer_cik,
            last_day(make_date(left(p.quarter, 4)::INT, right(p.quarter, 1)::INT * 3, 1)) AS q_end
     FROM {db.ALL_SEED_POSITIONS} p JOIN security_master m USING (cusip)
     WHERE m.symbol IS NOT NULL AND m.security_class IN {PRICED_CLASSES}
+      AND left(p.quarter, 4) = '{{year}}'      -- built one year at a time (see build)
 ),
-daily AS (
-    SELECT symbol, date, close,
-           close / lag(close) OVER w - 1 AS ret,
-           date - lag(date) OVER w AS gap
-    FROM prices_daily WINDOW w AS (PARTITION BY symbol ORDER BY date)
-),
+-- price-based features depend only on (symbol, quarter): compute them once per
+-- pair, not once per CUSIP (share classes and retired CUSIPs share a ticker)
+symq AS (SELECT DISTINCT symbol, quarter, q_end FROM universe),
 
 -- prices ---------------------------------------------------------------------
 px AS (
-    SELECT u.cusip, u.quarter,
+    SELECT u.symbol, u.quarter,
            arg_max(d.close, d.date) AS price, max(d.date) AS price_date
-    FROM universe u JOIN prices_daily d
+    FROM symq u JOIN prices_daily d
       ON d.symbol = u.symbol AND d.date <= u.q_end AND d.date > u.q_end - INTERVAL {STALE_PRICE_DAYS} DAY
     GROUP BY ALL
 ),
 mom AS (
-    SELECT u.cusip, u.quarter,
+    SELECT u.symbol, u.quarter,
            arg_max(d.close, d.date) FILTER (WHERE d.date <= last_day(u.q_end - INTERVAL 1 MONTH)
                                           AND d.date > last_day(u.q_end - INTERVAL 1 MONTH) - INTERVAL {STALE_PRICE_DAYS} DAY) AS p_t1,
            arg_max(d.close, d.date) FILTER (WHERE d.date <= last_day(u.q_end - INTERVAL 12 MONTH)
                                           AND d.date > last_day(u.q_end - INTERVAL 12 MONTH) - INTERVAL {STALE_PRICE_DAYS} DAY) AS p_t12
-    FROM universe u JOIN prices_daily d
+    FROM symq u JOIN prices_daily d
       ON d.symbol = u.symbol AND d.date <= u.q_end AND d.date > u.q_end - INTERVAL 13 MONTH
     GROUP BY ALL
 ),
@@ -82,12 +90,12 @@ market AS (
     WHERE s.symbol = 'SPY' AND s.date > rf.last_ff AND s.ret IS NOT NULL
 ),
 risk AS (
-    SELECT u.cusip, u.quarter,
+    SELECT u.symbol, u.quarter,
            count(*) AS n_days,
            count(*) FILTER (WHERE f.is_proxy) AS n_proxy_days,
            regr_slope(d.ret - f.RF, f.Mkt_RF) AS beta,
            stddev_samp(d.ret) * sqrt(252) AS vol
-    FROM universe u
+    FROM symq u
     JOIN daily d ON d.symbol = u.symbol AND d.date <= u.q_end AND d.date > u.q_end - INTERVAL 365 DAY
                 AND d.ret IS NOT NULL AND d.gap <= 7
     JOIN market f ON f.date = d.date
@@ -99,7 +107,8 @@ issuers AS (SELECT DISTINCT issuer_cik, quarter, q_end FROM universe WHERE issue
 pit AS (
     -- for each concept and period, the latest version filed by q_end
     SELECT i.quarter, i.q_end, f.issuer_cik, f.item, f.priority, f.start, f."end",
-           arg_max(f.val, f.known_at) AS val, max(f.known_at) AS known_at
+           -- latest filing wins; same-day ties: the larger value (explicit, so reruns agree)
+           first(f.val ORDER BY f.known_at DESC, f.val DESC) AS val, max(f.known_at) AS known_at
     FROM issuers i JOIN fundamentals_facts f ON f.issuer_cik = i.issuer_cik AND f.known_at <= i.q_end
                                                AND f."end" <= i.q_end  -- some filings carry periods ending after their filing date
     WHERE NOT (f.item = 'shares_out' AND f.val <= 0)                   -- a zero share count is a tagging error
@@ -108,7 +117,8 @@ pit AS (
 pit_best AS (
     -- across fallback concepts for the same item and period, the highest priority
     SELECT quarter, q_end, issuer_cik, item, start, "end",
-           arg_min(val, priority) AS val, arg_min(known_at, priority) AS known_at, min(priority) AS priority
+           first(val ORDER BY priority, val DESC) AS val, first(known_at ORDER BY priority, val DESC) AS known_at,
+           min(priority) AS priority
     FROM pit GROUP BY ALL
 ),
 instant AS (SELECT * FROM pit_best WHERE start IS NULL),
@@ -121,8 +131,8 @@ equity AS (
 shares AS (
     -- take the highest-priority concept that has a recent value, then its latest value
     SELECT issuer_cik, quarter,
-           arg_min(val, priority * 100000 - epoch("end") / 86400) AS shares_out,
-           arg_min(known_at, priority * 100000 - epoch("end") / 86400) AS shares_known_at
+           first(val ORDER BY priority, "end" DESC, known_at DESC, val DESC) AS shares_out,
+           first(known_at ORDER BY priority, "end" DESC, known_at DESC, val DESC) AS shares_known_at
     FROM pit WHERE item = 'shares_out' AND "end" > q_end - INTERVAL 400 DAY
     GROUP BY ALL
 ),
@@ -194,9 +204,9 @@ SELECT
     greatest(eq.be_known_at, sh.shares_known_at, g.fy_known_at, g.prev_known_at) AS fundamentals_known_at,
     eq.be_end, g.fy_end
 FROM universe u
-LEFT JOIN px   USING (cusip, quarter)
-LEFT JOIN mom  USING (cusip, quarter)
-LEFT JOIN risk USING (cusip, quarter)
+LEFT JOIN px   ON px.symbol = u.symbol AND px.quarter = u.quarter
+LEFT JOIN mom  ON mom.symbol = u.symbol AND mom.quarter = u.quarter
+LEFT JOIN risk ON risk.symbol = u.symbol AND risk.quarter = u.quarter
 LEFT JOIN equity eq ON eq.issuer_cik = u.issuer_cik AND eq.quarter = u.quarter AND u.security_class IN ('common', 'adr')
 LEFT JOIN shares sh ON sh.issuer_cik = u.issuer_cik AND sh.quarter = u.quarter AND u.security_class = 'common'
 LEFT JOIN growth g  ON g.issuer_cik = u.issuer_cik AND g.quarter = u.quarter AND u.security_class IN ('common', 'adr')
@@ -209,10 +219,26 @@ LEFT JOIN rq nq ON nq.symbol = u.symbol AND nq.quarter =
 
 
 def build(con: duckdb.DuckDBPyConnection) -> None:
-    # The daily-return windows over ~21M price rows spill to disk; with fewer
-    # threads and no insertion order DuckDB needs far less temp space.
+    """One year of quarters at a time: the price windows for a year need only
+    ~13 months of prices, so memory and temp space stay small (the whole
+    history at once spilled more than the free disk). The new table replaces
+    the old one only after every year is built."""
     con.execute("SET preserve_insertion_order = false; SET threads = 4")
-    con.execute(SQL)
+    # never fill the disk: leave 1.5 GB free and fail cleanly if a spill needs more
+    free_gb = shutil.disk_usage(db.DB_PATH.parent).free / 2**30
+    con.execute(f"SET max_temp_directory_size = '{max(free_gb - 1.5, 0.5):.1f}GiB'")
+    con.execute(DAILY_SQL)
+    years = [r[0] for r in con.execute(
+        f"SELECT DISTINCT left(quarter, 4) FROM {db.ALL_SEED_POSITIONS} ORDER BY 1").fetchall()]
+    con.execute("DROP TABLE IF EXISTS stock_quarter_new")
+    for i, year in enumerate(years):
+        con.execute(SQL.replace("{year}", year))
+        if i == 0:
+            con.execute("CREATE TABLE stock_quarter_new AS SELECT * FROM sq_chunk")
+        else:
+            con.execute("INSERT INTO stock_quarter_new SELECT * FROM sq_chunk")
+    con.execute("DROP TABLE IF EXISTS stock_quarter")
+    con.execute("ALTER TABLE stock_quarter_new RENAME TO stock_quarter")
 
 
 def coverage_report(con) -> None:

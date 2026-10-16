@@ -27,15 +27,15 @@ def test_characteristics_known_after_the_filing_are_not_used():
     con.register("pos", pl.DataFrame({
         "fund_id": ["f", "f"], "quarter": ["2026Q2"] * 2, "known_at": [filed] * 2,
         "symbol": ["A", "B"], "cusip": ["A0", "B0"], "weight_long": [0.5, 0.5],
-        "age_q": [3, 20], "is_option": [False, False]}))
+        "age_q": [3, 20], "is_option": [False, False], "cohort": ["seed", "seed"]}))
     con.register("sq", pl.DataFrame({
         "cusip": ["A0", "B0"], "quarter": ["2026Q2"] * 2, "known_at": [date(2026, 6, 30)] * 2,
         "fundamentals_known_at": [date(2026, 5, 1), date(2026, 9, 1)]}))   # B: after the filing
     con.register("z", pl.DataFrame({
-        "symbol": ["A", "B"], "quarter": ["2026Q2"] * 2, "ff12_code": ["BusEq", "Hlth"],
+        "symbol": ["A", "B"], "quarter": ["2026Q2"] * 2, "ff12_code": ["BusEq", "Hlth"], "in_seed": [True, True],
         **{f"z_{n}": [1.0, -3.0] for n in fingerprint.TILTS}}))
     con.register("fq", pl.DataFrame({
-        "fund_id": ["f"], "quarter": ["2026Q2"], "fund_name": ["F"], "known_at": [filed],
+        "fund_id": ["f"], "quarter": ["2026Q2"], "fund_name": ["F"], "cohort": ["seed"], "known_at": [filed],
         "n_positions": [2], "top10_weight": [1.0], "hhi": [0.5], "active_share": [0.9],
         "turnover": [0.1], "gross_turnover": [0.2]}))
     for name, src in [("positions", "pos"), ("stock_quarter", "sq"), ("stock_zscores", "z"), ("fund_quarter", "fq")]:
@@ -111,17 +111,19 @@ def preds(sec_db):
 @pytest.mark.data
 def test_predictions_unique_and_labelled(preds):
     assert scalar(preds, "SELECT count(*) - count(DISTINCT (fund_id, quarter)) FROM style_predictions") == 0
-    assert scalar(preds, "SELECT count(*) FROM style_predictions WHERE style_guess IS NULL OR predicted IS NULL") == 0
+    assert scalar(preds, "SELECT count(*) FROM style_predictions WHERE label IS NULL OR predicted IS NULL") == 0
 
 
 @pytest.mark.data
-def test_predictions_split_by_time_only(preds):
+def test_predictions_split_by_time_and_cohort(preds):
     from src.models.style_classifier import TEST_FROM, TRAIN
     assert scalar(preds, f"""
         SELECT count(*) FROM style_predictions
-        WHERE (split = 'train' AND quarter NOT BETWEEN '{TRAIN[0]}' AND '{TRAIN[1]}')
-           OR (split = 'test' AND quarter < '{TEST_FROM}')
-           OR split NOT IN ('train', 'test')""") == 0
+        WHERE (split = 'train' AND (quarter NOT BETWEEN '{TRAIN[0]}' AND '{TRAIN[1]}' OR cohort <> 'seed'))
+           OR (split = 'test' AND (quarter < '{TEST_FROM}' OR cohort <> 'seed'))
+           OR (split = 'holdout' AND (quarter < '{TEST_FROM}' OR cohort <> 'holdout'))
+           OR split NOT IN ('train', 'test', 'holdout')""") == 0
+    assert scalar(preds, "SELECT count(DISTINCT fund_id) FROM style_predictions WHERE split = 'holdout'") >= 15
 
 
 @pytest.mark.data

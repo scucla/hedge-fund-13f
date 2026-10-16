@@ -16,6 +16,8 @@ Columns:
   age_censored   the run starts in the first quarter of data, so age_q is a
                  lower bound
   crowding       number of *other* seed funds holding the same security long
+                 (holdout funds are never counted, so they can't change seed features)
+  cohort         'seed' or 'holdout'
   known_at       the fund-quarter's filing date (holdings are public then)
 
 Splits are detected from the data, not a corporate-actions feed: for each
@@ -61,8 +63,10 @@ def build(con) -> None:
     # --- splits ---------------------------------------------------------------
     ratios = con.execute(f"""
         WITH px AS (SELECT symbol, {QIDX.format(q='quarter')} AS q_idx, close_q FROM returns_quarterly),
+        -- seed funds only: the holdout funds must not move a seed split decision
         cur AS (SELECT h.*, px.close_q FROM h JOIN px USING (symbol, q_idx)
-                WHERE h.put_call = '' AND h.shares > 0 AND h.value_usd > 0 AND NOT h.shares_suspect)
+                WHERE h.put_call = '' AND h.shares > 0 AND h.value_usd > 0 AND NOT h.shares_suspect
+                  AND h.cohort = 'seed')
         SELECT t.cusip, t.quarter, t.q_idx,
                median((t.shares / p.shares) / ((t.value_usd / t.close_q) / (p.value_usd / p.close_q))) AS median_ratio,
                count(*) AS n_funds
@@ -82,7 +86,8 @@ def build(con) -> None:
             SELECT h.*,
                    sum(value_usd) OVER (PARTITION BY fund_id, quarter) AS fund_value,
                    sum(value_usd) FILTER (WHERE put_call = '') OVER (PARTITION BY fund_id, quarter) AS fund_long_value,
-                   min(q_idx) OVER () AS first_q_idx
+                   -- first quarter of data per cohort (holdout history starts later)
+                   min(q_idx) OVER (PARTITION BY cohort) AS first_q_idx
             FROM h
         ),
         prev AS (SELECT fund_id, cusip, put_call, q_idx + 1 AS q_idx, qty AS prev_qty,
@@ -101,10 +106,10 @@ def build(con) -> None:
         ),
         crowd AS (
             SELECT quarter, security_key, count(DISTINCT fund_id) AS n_funds
-            FROM h WHERE put_call = '' GROUP BY ALL
+            FROM h WHERE put_call = '' AND cohort = 'seed' GROUP BY ALL
         )
         SELECT
-            t.fund_id, t.fund_name, t.quarter, t.cusip, t.put_call, t.symbol, t.security_key,
+            t.fund_id, t.fund_name, t.cohort, t.quarter, t.cusip, t.put_call, t.symbol, t.security_key,
             t.security_class, t.issuer_cik, t.name_of_issuer,
             t.shares, t.principal, t.value_usd,
             t.value_usd / t.fund_value AS weight,
@@ -118,7 +123,7 @@ def build(con) -> None:
             t.shares_suspect,
             a.age_q,
             a.run_start = t.first_q_idx AS age_censored,
-            CASE WHEN t.put_call = '' THEN c.n_funds - 1 END AS crowding,
+            CASE WHEN t.put_call = '' THEN coalesce(c.n_funds, 0) - (t.cohort = 'seed')::INT END AS crowding,
             t.put_call <> '' AS is_option,
             t.known_at
         FROM t

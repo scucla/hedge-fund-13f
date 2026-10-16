@@ -155,7 +155,9 @@ def is_us_exchange(code: str | None) -> bool:
 def common_ticker(response: dict) -> str | None:
     """The ticker used by most of a security's listings (HON, not HONGBP)."""
     tickers = [d.get("ticker") for d in response.get("data") or [] if d.get("ticker")]
-    return max(set(tickers), key=tickers.count) if tickers else None
+    # ties: the shorter ticker (HON over HONGBP), then alphabetical. Never set order,
+    # which changes between runs (Python randomizes string hashing).
+    return min(set(tickers), key=lambda t: (-tickers.count(t), len(t), t)) if tickers else None
 
 
 def best_listing(response: dict) -> dict | None:
@@ -253,8 +255,12 @@ def ciks_by_name(master: pl.DataFrame) -> dict[str, str]:
 def build() -> pl.DataFrame:
     con = db.connect()
     universe = con.execute(f"""
-        SELECT cusip, any_value(name_of_issuer) AS name_of_issuer,
-               bool_and(put_call = '' AND shares = 0 AND principal > 0) AS principal_only
+        -- deterministic, and from seed funds' rows when there are any, so the
+        -- holdout funds can't change how a seed CUSIP is mapped
+        SELECT cusip,
+               coalesce(min(name_of_issuer) FILTER (WHERE cohort = 'seed'), min(name_of_issuer)) AS name_of_issuer,
+               coalesce(bool_and(put_call = '' AND shares = 0 AND principal > 0) FILTER (WHERE cohort = 'seed'),
+                        bool_and(put_call = '' AND shares = 0 AND principal > 0)) AS principal_only
         FROM {db.ALL_SEED_POSITIONS} GROUP BY cusip
     """).pl()
 
@@ -303,8 +309,10 @@ def build() -> pl.DataFrame:
     # Fallback: FIGIs that filers reported themselves for CUSIPs still unmapped.
     unmapped = [c for c, r in by_cusip.items() if best_listing(r) is None]
     filer_figis = con.execute("""
-        SELECT cusip, mode(figi) AS figi FROM filings_db.infotable_raw
-        WHERE figi IS NOT NULL AND cusip IN (SELECT unnest($c)) GROUP BY cusip
+        -- the FIGI most filers reported; ties alphabetical (mode() breaks ties arbitrarily)
+        WITH n AS (SELECT cusip, figi, count(*) AS n FROM filings_db.infotable_raw
+                   WHERE figi IS NOT NULL AND cusip IN (SELECT unnest($c)) GROUP BY ALL)
+        SELECT cusip, first(figi ORDER BY n DESC, figi) AS figi FROM n GROUP BY cusip
     """, {"c": unmapped}).pl()
     by_figi = openfigi_map("ID_BB_GLOBAL", filer_figis["figi"].to_list()) if len(filer_figis) else {}
     figi_for = dict(filer_figis.iter_rows())

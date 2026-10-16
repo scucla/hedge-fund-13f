@@ -22,7 +22,8 @@
 # `stock_quarter`, `seed_positions`) plus the seed list's `style_guess`, which
 # is a weak label. The seed list is survivor-biased (funds known today), and so
 # are prices before about 2018 (chart 5), so cross-fund statistics for the
-# early years lean towards survivors.
+# early years lean towards survivors. The tables also hold the Milestone 4
+# holdout funds (`cohort = 'holdout'`); every query here keeps seed funds only.
 
 # %%
 from pathlib import Path
@@ -80,7 +81,7 @@ def save(fig, name):
 
 # %%
 fq = con.execute("""
-    SELECT fund_id, quarter, n_positions, turnover, gross_turnover FROM fund_quarter WHERE n_positions > 0
+    SELECT fund_id, quarter, n_positions, turnover, gross_turnover FROM fund_quarter WHERE n_positions > 0 AND cohort = 'seed'
 """).pl().join(seed.select("fund_id", "style_guess"), on="fund_id", how="left")
 per_fund = fq.group_by("fund_id", "style_guess").agg(
     pl.col("n_positions").median().alias("n_positions"),
@@ -147,7 +148,7 @@ print(per_fund.group_by("style_guess").agg(
 # %%
 crowd = con.execute("""
     SELECT security_key AS symbol, quarter, count(DISTINCT fund_id) AS n_funds
-    FROM positions WHERE NOT is_option AND security_class IN ('common', 'adr')
+    FROM positions WHERE NOT is_option AND security_class IN ('common', 'adr') AND cohort = 'seed'
     GROUP BY ALL
 """).pl()
 # Corporate events since 2015 changed some CUSIPs, so the 2015 holding sits
@@ -156,7 +157,7 @@ crowd = con.execute("""
 PREDECESSORS = {"8888000D": "GOOGL", "9999000D": "GOOG", "1373183D": "AVGO", "DISCA": "WBD", "DISCK": "WBD"}
 crowd_first = con.execute("""
     SELECT security_key AS symbol, fund_id FROM positions
-    WHERE NOT is_option AND security_class IN ('common', 'adr') AND quarter = ?
+    WHERE NOT is_option AND security_class IN ('common', 'adr') AND quarter = ? AND cohort = 'seed'
 """, [FIRST_Q]).pl().with_columns(pl.col("symbol").replace(PREDECESSORS))
 first = crowd_first.group_by("symbol").agg(pl.col("fund_id").n_unique().alias("n_funds"))
 # first trading day on our price source, to tell "listed later" from "nobody held it"
@@ -171,7 +172,7 @@ top = (last.sort("n_funds", "symbol", descending=[True, False]).head(20)   # sym
                      (pl.col("first_date") > first_q_end).fill_null(False).alias("listed_later"))
        .sort("n_funds"))
 n_filers = dict(con.execute("""
-    SELECT quarter, count(DISTINCT fund_id) FROM fund_quarter WHERE n_positions > 0 GROUP BY 1
+    SELECT quarter, count(DISTINCT fund_id) FROM fund_quarter WHERE n_positions > 0 AND cohort = 'seed' GROUP BY 1
 """).fetchall())
 
 fig, ax = plt.subplots(figsize=(8.5, 7))
@@ -222,7 +223,7 @@ print(crowd.filter(pl.col("quarter") == FIRST_Q).sort("n_funds", descending=True
 FACT = ["size", "value", "momentum", "profitability", "investment", "beta"]
 tilts = (con.execute(f"""
     SELECT fund_id, any_value(fund_name) AS fund_name, {", ".join(f"avg(tilt_{f}) AS tilt_{f}" for f in FACT)}
-    FROM fund_quarter WHERE n_positions > 0
+    FROM fund_quarter WHERE n_positions > 0 AND cohort = 'seed'
     GROUP BY fund_id
 """).pl().join(seed.select("fund_id", "style_guess"), on="fund_id", how="left")
           .sort("style_guess", "tilt_size"))
@@ -268,7 +269,7 @@ print(tilts.group_by("style_guess").agg([pl.col(f"tilt_{f}").median().round(2).a
 # them in amendments months later (8.6% of event-driven value; Davidson
 # Kempner 38%, Taconic 28%, HBK 15%). The tilts here use only what was public
 # at the original filing. Healthcare funds tilt low on value and
-# profitability (both −0.38σ), which is biotech; their momentum tilt is neutral
+# profitability (−0.38σ and −0.36σ), which is biotech; their momentum tilt is neutral
 # over the full history (+0.02σ) although it was +1.09σ in 2026Q2 alone, a
 # reminder that one quarter is not a style. Growth/tech has the highest beta
 # (+0.66σ), concentrated value the highest value tilt (+0.41σ, still modest),
@@ -368,7 +369,7 @@ cov = con.execute(f"""
            sum(p.value_usd) FILTER (WHERE s.ret_next_q IS NOT NULL) / sum(p.value_usd) AS labelled
     FROM seed_positions p JOIN security_master m USING (cusip)
     LEFT JOIN stock_quarter s ON s.cusip = p.cusip AND s.quarter = p.quarter
-    WHERE m.security_class IN {PRICED_CLASSES}
+    WHERE m.security_class IN {PRICED_CLASSES} AND p.cohort = 'seed'
     GROUP BY 1 ORDER BY 1
 """).pl()
 TRAIN_FROM = 2018

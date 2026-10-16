@@ -66,7 +66,7 @@ def fund_holdings(
     positions = con.execute(
         """
         SELECT cusip, put_call,
-               any_value(name_of_issuer) AS name_of_issuer,
+               min(name_of_issuer) AS name_of_issuer,   -- deterministic (names vary across lots)
                sum(shares) AS shares,
                sum(principal) AS principal,
                sum(value_usd) AS value_usd

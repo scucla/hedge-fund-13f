@@ -96,9 +96,9 @@ def build(con) -> None:
     con.execute(f"""
         CREATE OR REPLACE TABLE fund_holdings AS
         SELECT d.fund_id, any_value(d.fund_name) AS fund_name, s.quarter, s.cusip, s.put_call,
-               any_value(s.name_of_issuer) AS name_of_issuer,
+               min(s.name_of_issuer) AS name_of_issuer,
                sum(s.shares) AS shares, sum(s.principal) AS principal, sum(s.value_usd) AS value_usd,
-               max(s.known_at) AS known_at, count(DISTINCT s.cik) AS n_ciks,
+               max(s.known_at) AS known_at, count(DISTINCT s.cik) AS n_ciks, any_value(s.cohort) AS cohort,
                coalesce(bool_or(s.shares_suspect), false) AS shares_suspect
         FROM {SOURCE} s
         JOIN fund_book_decisions d ON d.fund_name = s.fund_name AND d.quarter = s.quarter AND d.cik = s.cik
@@ -111,7 +111,8 @@ def build(con) -> None:
     # securities that quarter (e.g. it sold everything). Keep that fact.
     con.execute(f"""
         CREATE OR REPLACE TABLE empty_books AS
-        SELECT d.fund_id, any_value(d.fund_name) AS fund_name, d.quarter, max(s.known_at) AS known_at
+        SELECT d.fund_id, any_value(d.fund_name) AS fund_name, any_value(s.cohort) AS cohort, d.quarter,
+               max(s.known_at) AS known_at
         FROM fund_book_decisions d
         JOIN {SOURCE} s ON s.fund_name = d.fund_name AND s.quarter = d.quarter AND s.cik = d.cik
         WHERE d.included
