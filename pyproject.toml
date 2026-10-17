@@ -7,6 +7,7 @@ requires-python = ">=3.11"
 dependencies = [
     "duckdb>=1.1",
     "gensim>=4.4.0",
+    "implicit>=0.7.3",
     "lightgbm>=4.7.0",
     "matplotlib>=3.11.2",
     "polars>=1.0",
