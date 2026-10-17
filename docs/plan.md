@@ -253,9 +253,9 @@ The plan assumes about 8–10 hours a week over roughly 12 weeks. Each milestone
 - **Done when:** you can show "here's what Fund X really does, and here's why the model thinks so."
 
 ### Milestone 5: Embeddings and clustering, Task B (week 6)
-- [ ] Cosine baseline → SVD/NMF → fund2vec.
-- [ ] HDBSCAN clusters + UMAP map; stability and purity metrics.
-- [ ] Crowding analysis for one or two stress episodes.
+- [x] Cosine baseline → SVD/NMF → fund2vec.
+- [x] HDBSCAN clusters + UMAP map; stability and purity metrics.
+- [x] Crowding analysis for one or two stress episodes.
 - **Done when:** you have the "map of the hedge fund industry" figure and a short written interpretation.
 
 ### Milestone 6: Next-quarter moves, Task C (weeks 7–9)

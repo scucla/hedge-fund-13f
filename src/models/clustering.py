@@ -375,6 +375,35 @@ def cluster_table(con, books, clusters: pl.DataFrame) -> pl.DataFrame:
     return pl.DataFrame(rows)
 
 
+def background_neighbours(con, books, method: str, clusters: pl.DataFrame) -> pl.DataFrame:
+    """Each mapped background filer's nearest seed fund (cosine, MAP_QUARTER) and
+    that fund's cluster: which part of the industry looks like which seed group."""
+    ids_s, x_s = quarter_vectors(con, books, method, MAP_QUARTER, ("seed",))
+    ids_b, x_b = quarter_vectors(con, books, method, MAP_QUARTER, ("background",))
+    cov = dict(con.execute("SELECT fund_id, coverage FROM fund_embeddings WHERE method = ? AND quarter = ?",
+                           [method, MAP_QUARTER]).fetchall())
+    keep = [i for i, f in enumerate(ids_b) if cov.get(f, 0) >= 0.5]
+    ids_b, x_b = [ids_b[i] for i in keep], x_b[keep]
+    sim = x_b @ x_s.T
+    near = sim.argmax(1)
+    lab = dict(zip(clusters["fund_id"], clusters["cluster"]))
+    mgr = dict(con.execute("""SELECT 'bg_' || cik::BIGINT::VARCHAR, any_value(manager_name)
+                              FROM filings_db.filings WHERE quarter = ? GROUP BY 1""", [MAP_QUARTER]).fetchall())
+    val = dict(con.execute("SELECT 'bg_' || cik::VARCHAR, any_value(long_value) FROM bg_w WHERE quarter = ? GROUP BY 1",
+                           [MAP_QUARTER]).fetchall()) if con.execute(
+        "SELECT count(*) FROM information_schema.tables WHERE table_name = 'bg_w'").fetchone()[0] else {}
+    df = pl.DataFrame({"fund_id": ids_b, "cluster": [lab[ids_s[j]] for j in near],
+                       "sim": sim.max(1), "value": [val.get(f, 0.0) for f in ids_b]})
+    return (df.sort("value", descending=True).group_by("cluster", maintain_order=True)
+            .agg(pl.len().alias("n_background"), pl.col("sim").median().alias("median_cos"),
+                 pl.col("fund_id").head(4).alias("largest"))
+            .with_columns(pl.col("largest").map_elements(lambda s: ", ".join(mgr.get(f, f)[:28] for f in s),
+                                                         return_dtype=pl.Utf8))
+            .with_columns(pl.when(pl.col("cluster") < 0).then(pl.lit("noise"))
+                          .otherwise(pl.lit("C") + pl.col("cluster").cast(pl.Utf8)).alias("cluster"))
+            .sort("n_background", descending=True))
+
+
 def main_select() -> None:
     con = db.connect()
     con.execute("SET enable_progress_bar = false")
@@ -425,6 +454,8 @@ def main() -> None:
                          GROUP BY 1 ORDER BY 1""").pl()
     themes = con.execute(f"SELECT theme, top_issuers FROM nmf_themes WHERE quarter = '{MAP_QUARTER}' ORDER BY theme").pl()
     ctab = cluster_table(con, books_all, map_clusters)
+    emb.background_books(con)   # rebuilds the bg_w temp table (long values) for the names below
+    bgn = background_neighbours(con, books_all, method, map_clusters)
     cols = ["method", "algo", "n_clusters", "noise_share", "purity", "purity_random", "label_ari", "stability_ari", "econ_gap"]
     REPORT.write_text(f"""# Fund embeddings and clusters (Milestone 5, Task B)
 
@@ -467,6 +498,11 @@ Background filers on the map (active share >= {emb.BG_MIN_ACTIVE_SHARE}, long bo
 largest {emb.BACKGROUND_N} per quarter, projected; median share of their book inside the seed vocabulary):
 
 {md(bg)}
+
+Nearest seed fund's cluster for each mapped background filer (cosine in `{method}` space;
+`largest` = the four largest filers by long 13F value):
+
+{md(bgn)}
 
 ## Method comparison and metrics over time
 
