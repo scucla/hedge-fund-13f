@@ -57,11 +57,18 @@ SHUMWAY_RET = -0.30
 SHUMWAY_WARTHER_NASDAQ_RET = -0.55
 # a parsed cash price this far from the last 13F price is a parse error, not a deal
 # (announced targets trade near the offer; 0.5x-2x leaves room for hostile bumps)
-TERMS_SANE = (0.5, 2.0)
+# deal already announced at q: the target trades near the deal value, so a payout far from
+# q's price is a missed leg or a parse error (Time Warner's cash-only parse gave 0.57x)
+TERMS_SANE = (0.9, 1.5)
+# a deal announced inside q+1 is not in q's price yet: takeover premia of 2-3.5x are real
+# (DallasNews $15 vs $4.30, Volta $0.86 vs $0.36), so the band is wider
+TERMS_SANE_SURPRISE = (0.5, 4.0)
+ACQ_RET_SANE = (0.5, 2.0)
+LOW_PRICE = 5.0   # a listing notice on a stock above this is more likely a deal or a move than distress
 DOC_PRIORITY = ["DEFM14A", "DEFM14C", "SC 14D9", "PREM14A", "PREM14C", "SC 13E3", "425"]
 MAX_DOCS_PER_DEAL = 3
 SPAC_SIC = 6770
-_SPAC_NAME = re.compile(r"\bACQUISITION\b|\bACQ\b|\bSPAC\b", re.I)
+_SPAC_NAME = re.compile(r"\bACQUISITION\b|\bACQ\b|\bSPAC\b|\bMERGER CORP", re.I)
 
 QEND = "last_day(make_date(left({q}, 4)::INT, right({q}, 1)::INT * 3, 1))"
 NEXTQ = """CASE WHEN right({q}, 1) = '4' THEN (left({q}, 4)::INT + 1)::VARCHAR || 'Q1'
@@ -158,7 +165,8 @@ def deal_terms(con, fetch: bool) -> pl.DataFrame:
 
 
 def distress_8k(con, fetch: bool) -> pl.DataFrame:
-    """Latest 8-K item 1.03 (bankruptcy) / 3.01 (listing notice) date per delisted exit with no deal."""
+    """8-K items 1.03 (bankruptcy), 3.01 (listing notice), and 2.01 / 5.01 (completion of an
+    acquisition / change in control) in the year before the delisting, per delisted exit with no deal filing."""
     rows = con.execute(f"""
         SELECT e.cusip, e.quarter, e.issuer_cik, d.delist_date
         FROM ex e JOIN ex_delist d USING (cusip, quarter) LEFT JOIN ex_deal x USING (cusip, quarter)
@@ -178,6 +186,8 @@ def distress_8k(con, fetch: bool) -> pl.DataFrame:
                     out.append((cusip, quarter, "1.03", d))
                 if "3.01" in its:
                     out.append((cusip, quarter, "3.01", d))
+                if "2.01" in its or "5.01" in its:
+                    out.append((cusip, quarter, "2.01", d))
     return pl.DataFrame(out, schema=["cusip", "quarter", "item", "date"], orient="row")
 
 
@@ -186,7 +196,8 @@ def classify(con, fetch: bool = False) -> None:
     distress = distress_8k(con, fetch)
     con.execute("CREATE OR REPLACE TEMP TABLE ex_terms AS SELECT * FROM terms")
     con.execute("""CREATE OR REPLACE TEMP TABLE ex_distress AS
-                   SELECT cusip, quarter, bool_or(item = '1.03') AS item_103, bool_or(item = '3.01') AS item_301
+                   SELECT cusip, quarter, bool_or(item = '1.03') AS item_103, bool_or(item = '3.01') AS item_301,
+                          bool_or(item = '2.01') AS item_201
                    FROM distress GROUP BY ALL""")
     # acquirer for stock legs: a counterparty on the issuer's 425 / S-4 filings that we can price
     con.execute(f"""
@@ -211,14 +222,15 @@ def classify(con, fetch: bool = False) -> None:
     """)
     con.execute(f"""
         CREATE OR REPLACE TABLE delisting_events AS
-        WITH base AS (
+        WITH base0 AS (
             SELECT e.*, d.delist_date, d.delist_form,
                    x.first_deal_filing, x.has_proxy, x.has_14d9, x.has_13e3, x.has_stock_deal,
                    coalesce(x.has_proxy OR x.has_14d9 OR x.has_13e3 OR x.has_stock_deal, false) AS has_deal,
                    t.terms_accession, t.terms_form, t.cash, t.ratio, t.acquirer_name, t.has_cvr, t.snippet,
                    a.acq_symbol, a.acq_cik,
-                   ds.item_103, ds.item_301,
-                   ip.px AS px_q, ip.px_disagree,
+                   ds.item_103, ds.item_301, ds.item_201,
+                   -- q's 13F price, with the unit fix implied_returns found between q-1 and q
+                   ip.px / pow(1000, coalesce(prev.unit_power, 0)) AS px_q0, ip.px_disagree,
                    ip.known_at AS px_known_at,
                    (pr.sic = {SPAC_SIC} OR regexp_matches(e.name, '{_SPAC_NAME.pattern}', 'i')) AS is_spac,
                    EXISTS (SELECT 1 FROM fund_holdings h JOIN security_master m USING (cusip)
@@ -233,23 +245,35 @@ def classify(con, fetch: bool = False) -> None:
             LEFT JOIN ex_acquirer a USING (cusip, quarter)
             LEFT JOIN ex_distress ds USING (cusip, quarter)
             LEFT JOIN implied_prices ip USING (cusip, quarter)
+            LEFT JOIN implied_returns prev ON prev.cusip = e.cusip AND prev.next_quarter = e.quarter
             LEFT JOIN issuer_profile pr ON pr.issuer_cik = e.issuer_cik
+        ),
+        -- no previous quarter to compare with: a cash price ~1000x away is a units error in px
+        base AS (
+            SELECT * EXCLUDE (px_q0),
+                CASE WHEN cash > 0 AND px_q0 > 0 AND abs(log10(cash / px_q0)) > 2
+                     THEN px_q0 * pow(1000, round(log10(cash / px_q0) / 3)) ELSE px_q0 END AS px_q,
+                first_deal_filing > q_end AS announced_in_next_q
+            FROM base0
         ),
         -- acquirer's nominal price on the delisting date: its median 13F price at q's end
         -- (nominal, like the exchange ratio) times its adjusted-close return since then
         acq AS (
             SELECT b.cusip, b.quarter,
+                   (SELECT arg_max(close, date) FROM prices_daily WHERE symbol = b.acq_symbol AND date <= b.delist_date)
+                   / (SELECT arg_max(close, date) FROM prices_daily WHERE symbol = b.acq_symbol AND date <= b.q_end) - 1
+                       AS acq_ret,
                    aip.px * (SELECT arg_max(close, date) FROM prices_daily WHERE symbol = b.acq_symbol AND date <= b.delist_date)
                           / (SELECT arg_max(close, date) FROM prices_daily WHERE symbol = b.acq_symbol AND date <= b.q_end)
                        AS acq_px_delist
             FROM base b
-            JOIN security_master am ON am.symbol = b.acq_symbol AND am.security_class = 'common'
-            JOIN implied_prices aip ON aip.cusip = am.cusip AND aip.quarter = b.quarter
-            WHERE b.ratio IS NOT NULL
-            QUALIFY row_number() OVER (PARTITION BY b.cusip, b.quarter ORDER BY aip.n_funds DESC) = 1
+            LEFT JOIN security_master am ON am.symbol = b.acq_symbol AND am.security_class = 'common'
+            LEFT JOIN implied_prices aip ON aip.cusip = am.cusip AND aip.quarter = b.quarter
+            WHERE b.acq_symbol IS NOT NULL
+            QUALIFY row_number() OVER (PARTITION BY b.cusip, b.quarter ORDER BY aip.n_funds DESC NULLS LAST) = 1
         ),
         cls AS (
-            SELECT b.*, acq.acq_px_delist,
+            SELECT b.*, acq.acq_px_delist, acq.acq_ret,
                 CASE
                     WHEN b.delist_date IS NULL AND b.issuer_held_next_q THEN 'cusip_change'
                     WHEN b.delist_date IS NULL AND b.issuer_cik IS NULL THEN 'no_cik'
@@ -260,7 +284,9 @@ def classify(con, fetch: bool = False) -> None:
                     WHEN b.has_deal AND b.cash IS NOT NULL THEN 'cash_acquisition'
                     WHEN b.has_deal AND b.has_stock_deal THEN 'stock_acquisition'
                     WHEN b.has_deal THEN 'cash_acquisition'
-                    WHEN b.item_103 OR b.item_301 OR b.px_q < {PENNY} THEN 'performance'
+                    WHEN b.item_103 OR b.px_q < {PENNY} OR (b.item_301 AND b.px_q < {LOW_PRICE}) THEN 'performance'
+                    -- no proxy or tender (schemes of arrangement, short-form mergers), but an 8-K says it closed
+                    WHEN b.item_201 THEN 'cash_acquisition'
                     ELSE 'other'
                 END AS exit_class,
                 CASE
@@ -271,8 +297,10 @@ def classify(con, fetch: bool = False) -> None:
                     WHEN b.has_deal AND b.cash IS NOT NULL THEN 'cash'
                     WHEN b.has_deal THEN 'terms_not_found'
                     WHEN b.item_103 THEN 'bankruptcy'
-                    WHEN b.item_301 THEN 'listing_notice'
                     WHEN b.px_q < {PENNY} THEN 'penny'
+                    WHEN b.item_301 AND b.px_q < {LOW_PRICE} THEN 'listing_notice'
+                    WHEN b.item_201 THEN 'completion_8k'
+                    WHEN b.item_301 THEN 'listing_notice_high_price'
                 END AS exit_subclass
             FROM base b LEFT JOIN acq USING (cusip, quarter)
         ),
@@ -284,26 +312,39 @@ def classify(con, fetch: bool = False) -> None:
                     WHEN 'mixed' THEN (cash + ratio * acq_px_delist) / px_q - 1
                 END AS terms_ret
             FROM cls
+        ),
+        banded AS (
+            SELECT *,
+                terms_ret IS NOT NULL AND CASE WHEN announced_in_next_q
+                    THEN terms_ret + 1 BETWEEN {TERMS_SANE_SURPRISE[0]} AND {TERMS_SANE_SURPRISE[1]}
+                    ELSE terms_ret + 1 BETWEEN {TERMS_SANE[0]} AND {TERMS_SANE[1]} END AS terms_ok,
+                -- stock deal already announced at q: the target tracks ratio x acquirer, so without a nominal
+                -- acquirer price its return is the acquirer's return from q's end to the delisting
+                exit_class = 'stock_acquisition' AND NOT coalesce(announced_in_next_q, true)
+                    -- an acquirer moving more than 0.5x-2x in under a quarter is more likely the wrong counterparty
+                    AND acq_ret + 1 BETWEEN {ACQ_RET_SANE[0]} AND {ACQ_RET_SANE[1]} AS use_acq_ret
+            FROM raw
         )
         SELECT *,
-            -- terms that put the payout outside 0.5x-2x of the last 13F price are parse errors
-            terms_ret IS NOT NULL AND (terms_ret + 1 < {TERMS_SANE[0]} OR terms_ret + 1 > {TERMS_SANE[1]}) AS terms_suspect,
+            -- payout outside the band (0.9x-1.5x of q's 13F price, 0.5x-4x if announced in q+1): a parse error
+            terms_ret IS NOT NULL AND NOT terms_ok AS terms_suspect,
             CASE
                 WHEN exit_class IN ('cash_acquisition', 'stock_acquisition') AND px_q IS NOT NULL THEN
-                    CASE WHEN terms_ret IS NOT NULL AND terms_ret + 1 BETWEEN {TERMS_SANE[0]} AND {TERMS_SANE[1]}
-                         THEN terms_ret ELSE 0.0 END
+                    CASE WHEN terms_ok THEN terms_ret WHEN use_acq_ret THEN acq_ret ELSE 0.0 END
                 WHEN exit_class = 'performance' THEN {SHUMWAY_RET}
             END AS delist_ret,
             CASE
                 WHEN exit_class IN ('cash_acquisition', 'stock_acquisition') AND px_q IS NOT NULL THEN
-                    CASE WHEN terms_ret IS NOT NULL AND terms_ret + 1 BETWEEN {TERMS_SANE[0]} AND {TERMS_SANE[1]}
-                         THEN 'delist_' || exit_subclass ELSE 'delist_last_13f_price' END
+                    CASE WHEN terms_ok THEN 'delist_' || exit_subclass WHEN use_acq_ret THEN 'delist_stock_acq_return'
+                         ELSE 'delist_last_13f_price' END
                 WHEN exit_class = 'performance' THEN 'delist_shumway'
             END AS ret_source,
             CASE WHEN exit_class = 'performance' THEN {SHUMWAY_WARTHER_NASDAQ_RET} END AS delist_ret_sensitivity,
             -- the return is public once the stock is delisted and the q 13F price is out
-            greatest(delist_date, px_known_at) AS ret_known_at
-        FROM raw
+            -- never before q's end: greatest() skips a NULL px_known_at, and a stock can be
+            -- delisted shortly before the quarter end it is still reported at
+            greatest(delist_date, px_known_at, q_end + INTERVAL 1 DAY)::DATE AS ret_known_at
+        FROM banded
     """)
 
 

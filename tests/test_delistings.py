@@ -33,6 +33,19 @@ def test_parse_terms_stock_deal_and_cvr():
     assert t["cash"] is None and t["ratio"] == 0.8
 
 
+def test_parse_terms_price_after_cash_and_traps():
+    seagen = ("If the merger is completed, you will be entitled to receive an amount in cash equal to $229.00 "
+              "(disregarding reduction for any applicable withholding taxes), for each eligible share of our common stock")
+    assert parse_terms(seagen)["cash"] == 229.0
+    pioneer = ("For example, if you own 110 shares of Pioneer common stock, you will be entitled to receive 255 shares "
+               "of ExxonMobil common stock. The ratio of 2.3234 shares of ExxonMobil common stock for each share")
+    assert parse_terms(pioneer) is None or parse_terms(pioneer)["ratio"] != 255
+    alexion = ("holders entitled to receive notice of and to vote at the Alexion special meeting; there were "
+               "220,912,612 shares of Alexion common stock issued and outstanding per share")
+    t = parse_terms(alexion)
+    assert t is None or t["ratio"] is None
+
+
 def test_parse_terms_tender_offer_and_nothing():
     t = parse_terms("Purchaser is offering to purchase all outstanding Shares at a price of $12.50 per Share, net to the seller")
     assert t["cash"] == 12.50
@@ -105,3 +118,149 @@ def test_sec_events_known_deals(sec_db):
     rows = dict(sec_db.execute("""SELECT form, min(known_at)::VARCHAR FROM sec_events
                                   WHERE cik = '0001418091' GROUP BY 1""").fetchall())   # Twitter
     assert rows["DEFM14A"] == "2022-07-26" and rows["25-NSE"] == "2022-10-28"
+
+
+# --- delisting events and filled labels -------------------------------------------------
+
+EXIT_CLASSES = {"cash_acquisition", "stock_acquisition", "performance", "other",
+                "sold_out", "cusip_change", "no_cik"}
+
+
+def test_delisting_events_keys_and_classes(sec_db):
+    _need(sec_db, "delisting_events")
+    assert sec_db.execute("SELECT count(*) - count(DISTINCT (cusip, quarter)) FROM delisting_events").fetchone()[0] == 0
+    classes = {r[0] for r in sec_db.execute("SELECT DISTINCT exit_class FROM delisting_events").fetchall()}
+    assert classes <= EXIT_CLASSES
+    # a delisting return only for acquisitions and performance delistings, and inside the sanity band
+    assert sec_db.execute("""SELECT count(*) FROM delisting_events WHERE delist_ret IS NOT NULL
+                             AND exit_class NOT IN ('cash_acquisition', 'stock_acquisition', 'performance')""").fetchone()[0] == 0
+    # deal returns inside the band the code uses: 0.9x-1.5x if announced by q's end, 0.5x-4x if announced in q+1
+    # (acquirer-return fallback: 0.5x-2x)
+    assert sec_db.execute("""SELECT count(*) FROM delisting_events WHERE ret_source IN ('delist_cash', 'delist_stock', 'delist_mixed')
+                             AND NOT CASE WHEN announced_in_next_q THEN delist_ret + 1 BETWEEN 0.5 AND 4.0
+                                          ELSE delist_ret + 1 BETWEEN 0.9 AND 1.5 END""").fetchone()[0] == 0
+    assert sec_db.execute("""SELECT count(*) FROM delisting_events WHERE ret_source = 'delist_stock_acq_return'
+                             AND NOT delist_ret + 1 BETWEEN 0.5 AND 2.0""").fetchone()[0] == 0
+    assert sec_db.execute("""SELECT count(*) FROM delisting_events
+                             WHERE exit_class = 'performance' AND delist_ret <> -0.30""").fetchone()[0] == 0
+
+
+def test_delisting_dates_are_ordered(sec_db):
+    _need(sec_db, "delisting_events")
+    assert sec_db.execute("""SELECT count(*) FROM delisting_events
+                             WHERE delist_date < first_deal_filing OR ret_known_at < delist_date""").fetchone()[0] == 0
+    # the delisting falls in (or right around) the quarter after the last holding
+    assert sec_db.execute("""SELECT count(*) FROM delisting_events WHERE delist_date IS NOT NULL
+                             AND NOT delist_date BETWEEN q_end - INTERVAL 30 DAY AND next_q_end + INTERVAL 15 DAY""").fetchone()[0] == 0
+
+
+def test_known_deals_classified(sec_db):
+    _need(sec_db, "delisting_events")
+    rows = {r[0]: r[1:] for r in sec_db.execute("""
+        SELECT issuer_cik, exit_class, exit_subclass, ret_source FROM delisting_events
+        WHERE issuer_cik IN ('0001418091', '0000718877', '0000816284') AND delist_date IS NOT NULL""").fetchall()}
+    if not rows:
+        pytest.skip("known deals not among the exits")
+    for cik in ("0001418091", "0000718877"):   # Twitter, Activision: cash
+        if cik in rows:
+            assert rows[cik][:2] == ("cash_acquisition", "cash")
+    if "0000816284" in rows:                   # Celgene: cash + BMY stock
+        assert rows["0000816284"][:2] == ("stock_acquisition", "mixed")
+
+
+def _need_cols(con, table, col):
+    _need(con, table)
+    if col not in {r[0] for r in con.execute(f"DESCRIBE {table}").fetchall()}:
+        pytest.skip(f"{table}.{col} not built (run src.securities.labels)")
+
+
+def test_every_missing_label_has_a_reason(sec_db):
+    _need_cols(sec_db, "stock_quarter", "ret_source")
+    assert sec_db.execute("SELECT count(*) FROM stock_quarter WHERE ret_source IS NULL").fetchone()[0] == 0
+    assert sec_db.execute("""SELECT count(*) FROM stock_quarter
+                             WHERE (ret_next_q IS NULL) <> (ret_source LIKE 'missing:%')""").fetchone()[0] == 0
+    # Yahoo rows are untouched
+    assert sec_db.execute("""SELECT count(*) FROM stock_quarter WHERE ret_source = 'yahoo'
+                             AND ret_next_q IS DISTINCT FROM ret_next_q_yahoo""").fetchone()[0] == 0
+
+
+def test_filled_labels_are_point_in_time(sec_db):
+    _need_cols(sec_db, "stock_quarter", "ret_source")
+    assert sec_db.execute("""SELECT count(*) FROM stock_quarter
+                             WHERE ret_next_q IS NOT NULL AND (label_known_at IS NULL OR label_known_at <= known_at)""").fetchone()[0] == 0
+
+
+# --- Task C exits never depend on prices ---------------------------------------------------
+
+def _moves_db():
+    import duckdb
+    con = duckdb.connect()
+    con.execute("""CREATE TABLE fund_holdings AS SELECT * FROM (VALUES
+        ('f1', 'seed', 'AAA', '2020Q1', DATE '2020-05-10', '', 100.0, NULL, false),
+        ('f1', 'seed', 'BBB', '2020Q1', DATE '2020-05-10', '', 100.0, NULL, false),
+        ('f1', 'seed', 'CCC', '2020Q1', DATE '2020-05-10', '', 100.0, NULL, false),
+        ('f1', 'seed', 'DDD', '2020Q1', DATE '2020-05-10', '', 100.0, NULL, false),
+        ('f1', 'seed', 'AAA', '2020Q2', DATE '2020-08-10', '', 200.0, NULL, false),   -- 2:1 split: hold
+        ('f1', 'seed', 'BBB', '2020Q2', DATE '2020-08-10', '', 150.0, NULL, false),   -- add
+        ('f1', 'seed', 'CCC', '2020Q2', DATE '2020-08-10', '', 50.0, NULL, false),    -- trim
+        ('f2', 'seed', 'AAA', '2020Q1', DATE '2020-05-12', '', 10.0, NULL, false)     -- f2 never files again
+        ) t(fund_id, cohort, cusip, quarter, known_at, put_call, shares, principal, shares_suspect)""")
+    con.execute("CREATE TABLE empty_books (fund_id VARCHAR, quarter VARCHAR, known_at DATE)")
+    con.execute("CREATE TABLE stock_splits (cusip VARCHAR, quarter VARCHAR, split_ratio DOUBLE)")
+    con.execute("CREATE TABLE implied_splits AS SELECT 'AAA' AS cusip, '2020Q2' AS quarter, 2.0 AS split_ratio")
+    con.execute("""CREATE TABLE delisting_events AS
+                   SELECT 'DDD' AS cusip, '2020Q1' AS quarter, 'cash_acquisition' AS exit_class""")
+    return con
+
+
+def test_position_moves_need_no_price_tables():
+    from src.features import position_moves
+    con = _moves_db()   # no prices_daily, returns_quarterly or stock_quarter exist at all
+    position_moves.build(con)
+    got = {(f, c): (a, fe) for f, c, a, fe in con.execute(
+        "SELECT fund_id, cusip, action, forced_exit FROM position_moves").fetchall()}
+    assert got == {("f1", "AAA"): ("hold", False), ("f1", "BBB"): ("add", False),
+                   ("f1", "CCC"): ("trim", False), ("f1", "DDD"): ("exit", True)}   # f2 didn't file: no label
+
+
+def test_position_moves_sql_reads_no_prices():
+    import inspect
+    from src.features import position_moves
+    src = inspect.getsource(position_moves.build)
+    for t in ("prices_daily", "returns_quarterly", "stock_quarter", "implied_prices", "implied_returns"):
+        assert t not in src
+
+
+def test_position_moves_real(sec_db):
+    _need(sec_db, "position_moves")
+    assert sec_db.execute("SELECT count(*) - count(DISTINCT (fund_id, cusip, quarter)) FROM position_moves").fetchone()[0] == 0
+    assert sec_db.execute("SELECT count(*) FROM position_moves WHERE forced_exit AND action <> 'exit'").fetchone()[0] == 0
+
+
+# --- merger targets ------------------------------------------------------------------------
+
+def test_merger_target_share(sec_db):
+    _need(sec_db, "merger_target_share", "merger_targets")
+    assert sec_db.execute("SELECT count(*) - count(DISTINCT (fund_id, quarter)) FROM merger_target_share").fetchone()[0] == 0
+    assert sec_db.execute("SELECT count(*) FROM merger_target_share WHERE NOT target_share BETWEEN 0 AND 1.0001").fetchone()[0] == 0
+    assert sec_db.execute("SELECT count(*) FROM merger_targets WHERE announce_date > close_date").fetchone()[0] == 0
+
+
+def test_no_target_counted_before_announcement():
+    import duckdb
+    from src.features import merger_targets
+    con = duckdb.connect()
+    con.execute("""CREATE TABLE delisting_events AS SELECT * FROM (VALUES
+        ('T1', '0001', 'TGT', 'cash_acquisition', 'cash', DATE '2020-05-15', DATE '2020-11-20', '2020Q3')
+        ) t(cusip, issuer_cik, name, exit_class, exit_subclass, first_deal_filing, delist_date, quarter)""")
+    con.execute("""CREATE TABLE positions AS SELECT * FROM (VALUES
+        ('f1', 'seed', '2020Q1', 'T1', 0.5, false), ('f1', 'seed', '2020Q1', 'X', 0.5, false),
+        ('f1', 'seed', '2020Q2', 'T1', 0.5, false), ('f1', 'seed', '2020Q2', 'X', 0.5, false),
+        ('f1', 'seed', '2020Q4', 'X', 1.0, false)
+        ) t(fund_id, cohort, quarter, cusip, weight_long, is_option)""")
+    con.execute("""CREATE TABLE fund_fingerprint AS SELECT * FROM (VALUES
+        ('f1', 'seed', '2020Q1', DATE '2020-05-10'), ('f1', 'seed', '2020Q2', DATE '2020-08-10'),
+        ('f1', 'seed', '2020Q4', DATE '2021-02-10')) t(fund_id, cohort, quarter, known_at)""")
+    merger_targets.build(con)
+    got = dict(con.execute("SELECT quarter, target_share FROM merger_target_share").fetchall())
+    assert got == {"2020Q1": 0.0, "2020Q2": 0.5, "2020Q4": 0.0}   # announced 05-15: not yet at 03-31

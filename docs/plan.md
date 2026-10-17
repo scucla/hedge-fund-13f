@@ -248,7 +248,7 @@ The plan assumes about 8–10 hours a week over roughly 12 weeks. Each milestone
 ### Milestone 4: Strategy fingerprint, Task A (week 5)
 - [x] Holdings-based factor tilts and a radar chart per fund.
 - [x] Returns-based FF5+Mom regressions, compared with the holdings-based tilts.
-- [ ] Build weak labels (13D, merger targets, heuristics) and hand-label a test set. (Done except merger-target labels.)
+- [x] Build weak labels (13D, merger targets, heuristics) and hand-label a test set.
 - [x] Train LightGBM + SHAP; produce style-drift charts.
 - **Done when:** you can show "here's what Fund X really does, and here's why the model thinks so."
 

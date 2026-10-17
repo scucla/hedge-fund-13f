@@ -29,17 +29,22 @@ MAX_DOC_BYTES = 800_000
 MAX_TEXT_CHARS = 250_000
 
 _WORDS = {"one": 1, "two": 2, "three": 3, "four": 4, "five": 5, "one-half": 0.5, "one half": 0.5}
-_NUM = r"(\d+(?:\.\d+)?|one-half|one half|one|two|three|four|five)"
+# a ratio is never part of a larger number ("220,912,612 shares")
+_NUM = r"(?<![\d,.$])(\d+(?:\.\d+)?|one-half|one half|one|two|three|four|five)"
+MAX_RATIO = 20.0          # larger "ratios" are share counts or worked examples
 # the sentence that defines the consideration
 _CONSIDERATION = re.compile(
     r"(?:entitled to receive|right to receive|converted into|exchanged for|will receive)\s+"
     r"(?:the\s+(?:per\s+share\s+)?merger consideration\s+(?:of|consisting of)\s+)?"
-    r"(.{0,400}?)\s+(?:for each|per share of|per\s+[A-Z][\w.&\- ]{0,40}?share|in exchange for each)",
+    r"(.{0,400}?)\s*(?:for each|per share of|per\s+[A-Z][\w.&\- ]{0,40}?share|in exchange for each|,?\s*per share\b)",
     re.I | re.S)
 _CASH = re.compile(r"\$\s?(\d{1,4}(?:,\d{3})*(?:\.\d+)?)\s*(?:per share\s*)?(?:,\s*)?(?:net to the (?:seller|holder)\s*)?in cash", re.I)
+# "an amount in cash equal to $229.00" (Seagen): the price after the word cash
+_CASH_EQ = re.compile(r"(?:in cash|cash consideration|cash payment|cash amount)\s+(?:equal to|of)\s+\$\s?(\d{1,4}(?:,\d{3})*(?:\.\d+)?)(?!\s*(?:million|billion))", re.I)
 _STOCK = re.compile(_NUM + r"\s+(?:\(\d+(?:\.\d+)?\)\s+)?(?:of\s+an?\s+|validly issued[\w ,]*?\s+)?(?:fully paid[\w ,-]*?\s+)?"
                     r"(?:ordinary\s+)?shares?\s+of\s+(.{2,80}?)\s+(?:common|ordinary|class [ab]|series [ab]|american depositary)",
                     re.I | re.S)
+_EXAMPLE = re.compile(r"for example|if you (?:own|hold)|hypothetical|illustrat", re.I)
 _OFFER = re.compile(r"(?:offer price|at a price)\s+of\s+\$\s?(\d{1,4}(?:\.\d+)?)\s+per\s+(?:share|Share)", re.I)
 
 
@@ -100,9 +105,13 @@ def parse_terms(text: str) -> dict | None:
     from the first consideration sentence that names cash or stock; else a
     tender offer price; else None."""
     for m in _CONSIDERATION.finditer(text):
+        if _EXAMPLE.search(text[max(m.start() - 150, 0):m.start()]):
+            continue
         phrase = m.group(1)
-        cash = _CASH.search(phrase)
+        cash = _CASH.search(phrase) or _CASH_EQ.search(phrase)
         stock = _STOCK.search(phrase)
+        if stock and not 0 < _num(stock.group(1)) <= MAX_RATIO:
+            stock = None
         if not cash and not stock:
             continue
         return {
