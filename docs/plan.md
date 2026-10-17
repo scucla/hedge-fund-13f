@@ -259,10 +259,10 @@ The plan assumes about 8–10 hours a week over roughly 12 weeks. Each milestone
 - **Done when:** you have the "map of the hedge fund industry" figure and a short written interpretation.
 
 ### Milestone 6: Next-quarter moves, Task C (weeks 7–9)
-- [ ] Build targets, time-based splits and baselines first. Write down the baseline numbers before training anything.
-- [ ] C1: logistic regression → LightGBM → (optional) GRU. Add peer/cluster features and measure the lift.
-- [ ] C2: popularity → item-item CF → ALS → (optional) two-tower.
-- [ ] Do a leakage audit: re-check every feature's timestamp against the filing date.
+- [x] Build targets, time-based splits and baselines first. Write down the baseline numbers before training anything.
+- [x] C1: logistic regression → LightGBM → (optional) GRU. Add peer/cluster features and measure the lift.
+- [x] C2: popularity → item-item CF → ALS → (optional) two-tower.
+- [x] Do a leakage audit: re-check every feature's timestamp against the filing date.
 - **Done when:** you have a results table with baselines vs. models on the held-out test years, plus SHAP for C1.
 
 ### Milestone 7: Backtest, Task D (week 10)

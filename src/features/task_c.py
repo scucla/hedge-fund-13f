@@ -55,7 +55,7 @@ FEATURE_GROUPS: dict[str, list[str]] = {
             "age_q", "age_censored", "log_value", "unrealized_gain",
             "log_n_positions", "top10_weight", "hhi", "turnover_clipped", "gross_turnover_clipped",
             "options_share", "log_long_value"],
-    "stock": ["log_me", "bm", "gp_at", "asset_growth", "mom_12_1", "beta", "vol", "ret_q", "ff12_code",
+    "stock": ["log_me", "bm", "gp_at", "asset_growth", "mom_12_1", "beta", "vol", "ret_q", "ff12",
               "ret_since_qend"],
     "prior": ["prior_exit", "prior_trim", "prior_hold", "prior_add", "prior_n",
               "last_exit", "last_trim", "last_hold", "last_add"],
@@ -277,7 +277,7 @@ def build(con) -> None:
             fq.gross_turnover_clipped, fq.options_share, ln(1 + fq.long_value) AS log_long_value,
             greatest(p.known_at, fq.known_at, coalesce(pp.known_at, p.known_at)) AS own_known_at,
             -- stock
-            sq.log_me, sq.bm, sq.gp_at, sq.asset_growth, sq.mom_12_1, sq.beta, sq.vol, sq.ret_q, sq.ff12_code,
+            sq.log_me, sq.bm, sq.gp_at, sq.asset_growth, sq.mom_12_1, sq.beta, sq.vol, sq.ret_q, sq.ff12,
             least(si.ret_since_qend, 3) AS ret_since_qend,   -- a handful of Yahoo glitches (999x)
             greatest(sq.known_at, sq.fundamentals_known_at, si.c1_date) AS stock_known_at,
             -- prior
