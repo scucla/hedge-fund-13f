@@ -338,3 +338,19 @@ Closes the `ret_next_q` open item before Milestone 5. Reports: `docs/delisting_r
 **Merger-target weak label** (`src/features/merger_targets.py`): announced target = from the first target-side deal filing to the delisting, from the completed-acquisition list (1,827 deals). `target_share` separates event-driven funds with AUC 0.99. At the 10% threshold (fixed beforehand): 5 funds flagged, all event-driven, recall 5/12. It finds the pure merger-arb books (Water Island, Pentwater, Westchester, Glazer, Magnetar; holdouts Alpine and TIG) and misses multi-strategy event-driven funds (Davidson Kempner, Canyon, Taconic, Sculptor), whose deal positions are partly in confidential-treatment amendments (above). **Weak label and validation measure only, never a classifier feature:** the list knows which deals later completed. Missed: broken and still-pending deals, and targets no seed fund held.
 
 **Known limitations:** the 0% fallback for 657 deals without parsed terms; 1,223 exits with no CIK are unclassified; SPAC exits get no return; implied returns are price-only.
+
+## 2026-10-16: Milestone 5 — main embedding method chosen on pre-2023 quarters (logged before any 2023+ metric)
+
+- **Rule, fixed before running** (`src/models/clustering.py` docstring): HDBSCAN per quarter on seed funds; average each method's stability ARI (q vs q-1, noise as singletons), ARI vs the v2 style labels (noise as singletons) and econ gap (within- minus across-cluster correlation of next-12-month 13F-clone returns, market-demeaned); rank methods on each, lowest rank sum wins, ties to lower noise share.
+- **Selection window:** 2016Q1–2022Q4 (28 quarters); the econ gap only to 2021Q4 so its return window ends by 2022Q4. No 2023+ clustering metric had been computed when the choice was made.
+- **Result (quarterly means):**
+
+| method | noise | purity | purity (shuffled labels) | label ARI | stability ARI | econ gap | rank sum |
+|---|---|---|---|---|---|---|---|
+| fund2vec | 0.26 | 0.73 | 0.33 | 0.40 | 0.74 | 0.43 | 5 |
+| cosine | 0.46 | 0.73 | 0.33 | 0.30 | 0.78 | 0.50 | 5 |
+| svd | 0.16 | 0.71 | 0.35 | 0.34 | 0.57 | 0.43 | 8 |
+| nmf | 0.09 | 0.68 | 0.37 | 0.28 | 0.53 | 0.40 | 12 |
+
+- **Choice: fund2vec**, on the tie-break: it ties with the cosine baseline and calls far fewer funds noise (0.26 vs 0.46). Cosine's high stability is partly an artefact of noise: a fund that is noise in both quarters agrees with itself. Stored in `data/reference/embedding_choice.json`; the full run reads it and never rewrites it.
+- **A first `select` run was discarded:** a NaN in the first quarter (no previous quarter for stability) made the polars means NaN, so the ranking ignored stability and the econ gap. Fixed (NaN → null) and re-run on the same pre-2023 quarters. That run had computed nothing after 2022.

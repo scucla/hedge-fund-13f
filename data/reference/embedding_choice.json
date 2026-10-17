@@ -1,0 +1,52 @@
+{
+  "method": "fund2vec",
+  "chosen_at": "2026-10-16T19:26:57",
+  "quarters": [
+    "2016Q1",
+    "2022Q4"
+  ],
+  "econ_last": "2021Q4",
+  "rule": "rank sum of mean stability_ari, label_ari, econ_gap (HDBSCAN), ties to lower noise",
+  "ranking": [
+    {
+      "method": "fund2vec",
+      "noise_share": 0.2559842112106649,
+      "purity": 0.7257525731534775,
+      "purity_random": 0.3314277751392791,
+      "label_ari": 0.39994526096921373,
+      "stability_ari": 0.7401887825576537,
+      "econ_gap": 0.4319531264635675,
+      "rank_sum": 5
+    },
+    {
+      "method": "cosine",
+      "noise_share": 0.46333490121884413,
+      "purity": 0.7327425308286992,
+      "purity_random": 0.32966227078130184,
+      "label_ari": 0.29544597873695366,
+      "stability_ari": 0.7834724751578216,
+      "econ_gap": 0.5029347766287373,
+      "rank_sum": 5
+    },
+    {
+      "method": "svd",
+      "noise_share": 0.16259748412871058,
+      "purity": 0.7126176085842297,
+      "purity_random": 0.3543322166401108,
+      "label_ari": 0.33537647500716755,
+      "stability_ari": 0.5718774976526754,
+      "econ_gap": 0.43092444607911484,
+      "rank_sum": 8
+    },
+    {
+      "method": "nmf",
+      "noise_share": 0.08707279696673946,
+      "purity": 0.6830967179776114,
+      "purity_random": 0.369143130682889,
+      "label_ari": 0.28068579568385144,
+      "stability_ari": 0.5290780940195476,
+      "econ_gap": 0.3983864132204343,
+      "rank_sum": 12
+    }
+  ]
+}
