@@ -269,7 +269,7 @@ def plot_map(con, books, method: str, path: Path) -> pl.DataFrame:
     ax.set_title(f"Map of the hedge fund industry, {q} ({method}; UMAP fitted on 77 seed funds)",
                  loc="left", fontsize=12, color=INK)
     fig.text(0.01, 0.01, "Filled: seed funds, coloured by v2 style; Cn: HDBSCAN cluster (label at its medoid). "
-             "Rings: holdout funds. Grey: 500 largest active 13F filers, projected, not fitted.",
+             "Rings: holdout funds. Grey: 500 largest active, low-ETF 13F filers, projected, not fitted.",
              fontsize=7.5, color=MUTED)
     fig.tight_layout()
     fig.savefig(path, dpi=170, facecolor=SURFACE)
@@ -494,8 +494,8 @@ per quarter just because the basis rotates; aligned, the move is the fund's own.
 
 {md(ctab)}
 
-Background filers on the map (active share >= {emb.BG_MIN_ACTIVE_SHARE}, long book >= $100M,
-largest {emb.BACKGROUND_N} per quarter, projected; median share of their book inside the seed vocabulary):
+Background filers on the map (active share >= {emb.BG_MIN_ACTIVE_SHARE}, ETFs and funds <= {emb.BG_MAX_ETF_SHARE:.0%}
+of the book, long book >= $100M, largest {emb.BACKGROUND_N} per quarter, projected; median share of their book inside the seed vocabulary):
 
 {md(bg)}
 

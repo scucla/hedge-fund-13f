@@ -44,7 +44,10 @@ next filing) for positions in its own cluster's crowded names vs its other
 positions of at least the same CROWD_MIN_WEIGHT (big positions behave differently
 from small ones, so both groups are big).
 
-Writes `crowding_stocks`, `crowding_clusters`, `cluster_overlap`, figures 16-17,
+Sensitivity: the episode results are recomputed with the conviction floor at
+each of SENSITIVITY_FLOORS (the 1% floor stays the main one).
+
+Writes `crowding_stocks`, `crowding_clusters`, `cluster_overlap`, `crowding_sensitivity`, figures 16-17,
 docs/crowding.md.
 """
 
@@ -69,6 +72,7 @@ EPISODES = {
 }
 CROWD_MIN, CROWD_SHARE = 3, 0.5
 CROWD_MIN_WEIGHT = 0.01
+SENSITIVITY_FLOORS = [0.005, 0.01, 0.02]
 REPORT = Path("docs/crowding.md")
 CROWDED, WIDE, FEW = "crowded in a cluster", "widely held, not crowded", "0-2 conviction holders"
 
@@ -89,10 +93,11 @@ def seed_books(books: pl.DataFrame, quarter: str, funds: list[str]) -> pl.DataFr
 
 # --- per stock -----------------------------------------------------------------------
 
-def crowding_measures(book: pl.DataFrame, clusters: dict[str, int]) -> pl.DataFrame:
+def crowding_measures(book: pl.DataFrame, clusters: dict[str, int],
+                      min_weight: float = CROWD_MIN_WEIGHT) -> pl.DataFrame:
     """issuer_key -> n_holders, max_cluster_n, top_cluster, cluster_pairs, crowded."""
     size = pl.DataFrame({"cluster": list(clusters.values())}).group_by("cluster").len("cluster_size")
-    b = (book.filter(pl.col("w") >= CROWD_MIN_WEIGHT)
+    b = (book.filter(pl.col("w") >= min_weight)
          .with_columns(pl.col("fund_id").replace_strict(clusters, return_dtype=pl.Int64).alias("cluster")))
     per = (b.filter(pl.col("cluster") >= 0).group_by("issuer_key", "cluster").agg(pl.col("fund_id").n_unique().alias("n_c"))
            .join(size, on="cluster")
@@ -162,6 +167,19 @@ def regression(df: pl.DataFrame) -> pl.DataFrame:
     b, t, r2 = ols_newey_west(d["ret"].to_numpy(), X, lags=0)
     return pl.DataFrame({"term": ["intercept", *names], "coef": b, "t": t}).with_columns(
         pl.lit(d.height).alias("n"), pl.lit(r2).alias("r2"))
+
+
+def sensitivity_row(ep: str, floor: float, book: pl.DataFrame, clusters: dict[str, int],
+                    rets: pl.DataFrame) -> dict:
+    st = size_adjust(rets.join(crowding_measures(book, clusters, floor), on="issuer_key", how="inner").drop_nulls("ret"))
+    crowded = st.filter(pl.col("crowded"))
+    reg = regression(st)
+    coef = reg.filter(pl.col("term") == "crowded")
+    return {"episode": ep, "floor": f"{floor:.1%}", "n_crowded": crowded.height,
+            "n_widely_held": st.filter(pl.col("bucket") == WIDE).height,
+            "crowded_mean_ret": crowded["ret"].mean(), "crowded_mean_ret_adj": crowded["ret_adj"].mean(),
+            "crowded_median_ret_adj": crowded["ret_adj"].median(),
+            "reg_crowded": coef["coef"][0], "t_crowded": coef["t"][0]}
 
 
 # --- overlap -------------------------------------------------------------------------
@@ -304,12 +322,13 @@ def main() -> None:
     names = dict(con.execute("SELECT fund_id, any_value(fund_name) FROM positions GROUP BY 1").fetchall())
     names |= emb.issuer_names(con)
 
-    stock_rows, cluster_rows, sections, per_cluster = [], [], [], {}
+    stock_rows, cluster_rows, sections, per_cluster, sens = [], [], [], {}, []
     for ep, cfg in EPISODES.items():
         c = clusters_at(con, method, cfg["book"])
         book = seed_books(books, cfg["book"], list(c))
-        cm = crowding_measures(book, c)
         rets = episode_returns(con, cfg["book"], cfg["ret_quarters"])
+        sens += [sensitivity_row(ep, f, book, c, rets) for f in SENSITIVITY_FLOORS]
+        cm = crowding_measures(book, c)
         st = size_adjust(rets.join(cm, on="issuer_key", how="inner").drop_nulls("ret"))
         pc = cluster_episode(book, c, st, names)
         per_cluster[ep] = pc
@@ -349,9 +368,12 @@ Members: {"; ".join(f"**{r['cluster']}** {r['funds']}" for r in pc.iter_rows(nam
 """)
         print(ep, buckets, reg, ex, sep="\n")
 
+    sens = pl.DataFrame(sens)
+    print(sens)
     ov = overlap_by_quarter(con, books, method)
     stocks, clusters_df = pl.concat(stock_rows, how="diagonal"), pl.concat(cluster_rows)
-    for name, df in [("crowding_stocks", stocks), ("crowding_clusters", clusters_df), ("cluster_overlap", ov)]:
+    for name, df in [("crowding_stocks", stocks), ("crowding_clusters", clusters_df), ("cluster_overlap", ov),
+                     ("crowding_sensitivity", sens)]:
         con.register("df", df.to_arrow())
         con.execute(f"CREATE OR REPLACE TABLE {name} AS SELECT * FROM df")
         con.unregister("df")
@@ -368,6 +390,10 @@ start at the book's quarter end; `ret_adj` subtracts the median return of the
 stock's size quintile.
 
 ![episodes](figures/16_crowding_episodes.png)
+
+## Sensitivity to the conviction floor (main: {CROWD_MIN_WEIGHT:.0%})
+
+{cl.md(sens)}
 
 ## Overlap through time
 

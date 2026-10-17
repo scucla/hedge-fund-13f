@@ -8,6 +8,17 @@ stock's size quintile.
 
 ![episodes](figures/16_crowding_episodes.png)
 
+## Sensitivity to the conviction floor (main: 1%)
+
+| episode | floor | n_crowded | n_widely_held | crowded_mean_ret | crowded_mean_ret_adj | crowded_median_ret_adj | reg_crowded | t_crowded |
+|---|---|---|---|---|---|---|---|---|
+| covid | 0.5% | 20 | 171 | -0.14 | 0.16 | 0.25 | 0.13 | 1.79 |
+| covid | 1.0% | 13 | 92 | -0.07 | 0.20 | 0.25 | 0.11 | 1.53 |
+| covid | 2.0% | 9 | 51 | -0.10 | 0.16 | 0.24 | 0.09 | 0.97 |
+| growth | 0.5% | 25 | 160 | -0.29 | -0.11 | -0.03 | -0.15 | -1.90 |
+| growth | 1.0% | 18 | 92 | -0.38 | -0.20 | -0.28 | -0.23 | -2.55 |
+| growth | 2.0% | 7 | 50 | -0.45 | -0.29 | -0.36 | -0.13 | -1.34 |
+
 ## Overlap through time
 
 ![overlap](figures/17_cluster_overlap.png)
@@ -65,9 +76,9 @@ covid (2019Q4) 62%, growth (2021Q3) 76%.
 |---|---|---|---|---|---|---|---|---|---|
 | C0 | 3 | activist 2, value_concentrated 1 | 0.05 | 0 | 0.00 | None | -0.02 | -0.29 |  |
 | C1 | 8 | healthcare 7, event_driven 1 | 0.09 | 3 | 0.08 | 0.22 | 0.13 | -0.17 | ASND (-19%), ARVN (-2%), IOVA (+8%) |
-| C2 | 5 | activist 3, event_driven 1, discretionary_other 1 | 0.04 | 1 | 0.12 | -0.41 | 0.01 | -0.33 | MGM (-64%) |
-| C3 | 3 | growth_tech 1, discretionary_other 1, activist 1 | 0.23 | 0 | 0.00 | None | 0.11 | -0.18 |  |
-| C4 | 18 | growth_tech 13, event_driven 2, healthcare 1, discretionary_other 1, value_concentrated 1 | 0.17 | 7 | 0.27 | 0.22 | 0.10 | -0.13 | META (-19%), BABA (-8%), AMZN (+6%), MSFT (+0%), NFLX (+16%), CRM (-11%) |
+| C2 | 5 | activist 3, discretionary_other 1, event_driven 1 | 0.04 | 1 | 0.12 | -0.41 | 0.01 | -0.33 | MGM (-64%) |
+| C3 | 3 | discretionary_other 1, activist 1, growth_tech 1 | 0.23 | 0 | 0.00 | None | 0.11 | -0.18 |  |
+| C4 | 18 | growth_tech 13, event_driven 2, healthcare 1, value_concentrated 1, discretionary_other 1 | 0.17 | 7 | 0.27 | 0.22 | 0.10 | -0.13 | META (-19%), BABA (-8%), AMZN (+6%), MSFT (+0%), NFLX (+16%), CRM (-11%) |
 | C5 | 13 | multi_manager 7, quant 5, activist 1 | 0.28 | 0 | 0.00 | None | 0.02 | -0.25 |  |
 | C6 | 7 | event_driven 7 | 0.16 | 2 | 0.05 | 0.32 | 0.13 | -0.16 | 2078185D (-3%), LPT (+5%) |
 

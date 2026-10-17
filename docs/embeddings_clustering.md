@@ -58,39 +58,39 @@ per quarter just because the basis rotates; aligned, the move is the fund's own.
 
 | cluster | n | styles | funds | most shared names (holders) |
 |---|---|---|---|---|
-| noise | 22 | activist 9, value_concentrated 6, growth_tech 5, discretionary_other 1, event_driven 1 | Abrams Capital, Berkshire Hathaway, Brave Warrior Advisors, Corvex, Duquesne Family Office, Durable Capital Partners, Elliott Investment, Engaged Capital, Fairholme Capital, Glenview Capital, Greenlight Capital, Greenoaks Capital, Himalaya Capital, Hound Partners, Jana Partners, Land & Buildings Investment, Legion Partners, Magnetar Capital, Starboard Value, Trian Fund, ValueAct Capital, Viking Global Investors | AMZN (9), META (8), GOOGL (5), MSFT (5), CVNA (4) |
+| noise | 22 | activist 9, value_concentrated 6, growth_tech 5, event_driven 1, discretionary_other 1 | Abrams Capital, Berkshire Hathaway, Brave Warrior Advisors, Corvex, Duquesne Family Office, Durable Capital Partners, Elliott Investment, Engaged Capital, Fairholme Capital, Glenview Capital, Greenlight Capital, Greenoaks Capital, Himalaya Capital, Hound Partners, Jana Partners, Land & Buildings Investment, Legion Partners, Magnetar Capital, Starboard Value, Trian Fund, ValueAct Capital, Viking Global Investors | AMZN (9), META (8), GOOGL (5), MSFT (5), CVNA (4) |
 | C0 | 9 | healthcare 8, event_driven 1 | Avoro Capital Advisors, Baker Bros. Advisors, Deerfield, EcoR1 Capital, Farallon Capital, OrbiMed Advisors, Perceptive Advisors, RA Capital, Suvretta Capital | RVMD (6), SION (5), BSX (5), TSHA (5), AVTX (5) |
 | C1 | 3 | event_driven 2, activist 1 | Canyon Capital Advisors, Icahn Capital, Taconic Capital Advisors | CBL (2), ECHO (2), AZUL (2), IEP (1), VTOL (1) |
-| C2 | 17 | multi_manager 7, quant 5, discretionary_other 2, event_driven 2, activist 1 | AQR Capital, Ancora Advisors, Balyasny Asset, Bridgewater Associates, Citadel Advisors, D. E. Shaw & Co., Davidson Kempner Capital, ExodusPoint Capital, Gotham Asset, Millennium, Point72 Asset, Renaissance Technologies, Schonfeld Strategic Advisors, Sculptor Capital, Soros Fund, Tudor Investment Corp, Two Sigma Investments | NVDA (17), AMZN (17), META (17), GOOGL (16), MSFT (16) |
+| C2 | 17 | multi_manager 7, quant 5, event_driven 2, discretionary_other 2, activist 1 | AQR Capital, Ancora Advisors, Balyasny Asset, Bridgewater Associates, Citadel Advisors, D. E. Shaw & Co., Davidson Kempner Capital, ExodusPoint Capital, Gotham Asset, Millennium, Point72 Asset, Renaissance Technologies, Schonfeld Strategic Advisors, Sculptor Capital, Soros Fund, Tudor Investment Corp, Two Sigma Investments | NVDA (17), AMZN (17), META (17), GOOGL (16), MSFT (16) |
 | C3 | 5 | event_driven 5 | Glazer Capital, HBK Investments, Pentwater Capital, Water Island Capital, Westchester Capital | EA (5), WBD (5), APGE (5), ROKU (5), TECH (5) |
 | C4 | 4 | growth_tech 2, activist 2 | Lone Pine Capital, Sachem Head Capital, Steadfast Capital, Third Point | PFGC (4), CVNA (3), GOOGL (3), HUT (3), TSM (3) |
-| C5 | 3 | activist 1, growth_tech 1, value_concentrated 1 | Baupost Group, Egerton Capital, Pershing Square Capital | AMZN (3), V (3), GOOGL (2), QSR (2), UBER (2) |
+| C5 | 3 | growth_tech 1, activist 1, value_concentrated 1 | Baupost Group, Egerton Capital, Pershing Square Capital | AMZN (3), V (3), GOOGL (2), QSR (2), UBER (2) |
 | C6 | 7 | growth_tech 6, value_concentrated 1 | Altimeter Capital, Appaloosa, Coatue, Light Street Capital, Maverick Capital, Tiger Global, Whale Rock Capital | TSM (7), AMZN (7), NVDA (7), GOOGL (7), META (6) |
 | C7 | 3 | growth_tech 3 | Atreides, D1 Capital Partners, Dragoneer Investment Group | SPCX (3), AMZN (3), CBRS (3), INIO (2), NU (2) |
 
-Background filers on the map (active share >= 0.7, long book >= $100M,
-largest 500 per quarter, projected; median share of their book inside the seed vocabulary):
+Background filers on the map (active share >= 0.7, ETFs and funds <= 25%
+of the book, long book >= $100M, largest 500 per quarter, projected; median share of their book inside the seed vocabulary):
 
 | quarter | n | median_coverage |
 |---|---|---|
-| 2025Q3 | 500 | 0.95 |
-| 2025Q4 | 500 | 0.95 |
-| 2026Q1 | 500 | 0.95 |
-| 2026Q2 | 500 | 0.94 |
+| 2025Q3 | 500 | 0.98 |
+| 2025Q4 | 500 | 0.98 |
+| 2026Q1 | 500 | 0.98 |
+| 2026Q2 | 500 | 0.98 |
 
 Nearest seed fund's cluster for each mapped background filer (cosine in `fund2vec` space;
 `largest` = the four largest filers by long 13F value):
 
 | cluster | n_background | median_cos | largest |
 |---|---|---|---|
-| C2 | 386 | 0.94 | LPL Financial LLC, ENVESTNET ASSET MANAGEMENT I, JONES FINANCIAL COMPANIES LL, Dodge & Cox |
-| C7 | 22 | 0.98 | Alphabet Inc., Valor Management LLC, BAMCO INC /NY/, NVIDIA CORP |
-| C6 | 18 | 0.78 | BAILLIE GIFFORD & CO, EAGLE CAPITAL MANAGEMENT LLC, Situational Awareness LP, Value Aligned Research Advis |
-| C5 | 18 | 0.78 | TCI FUND MANAGEMENT LTD,  MASTERCARD FOUNDATION ASSET, PineStone Asset Management I, Soroban Capital Partners LP |
-| noise | 16 | 0.79 | ALPS ADVISORS INC, H&H International Investment, APG Asset Management US Inc., CENTERSQUARE INVESTMENT MANA |
-| C0 | 15 | 0.87 |  LILLY ENDOWMENT INC, Evelyn Partners Group Ltd, INVESTOR AB, RTW INVESTMENTS, LP |
-| C4 | 6 | 0.71 | WCM INVESTMENT MANAGEMENT, L, Rubric Capital Management LP, Carlyle Group Inc., PointState Capital LP |
-| C3 | 3 | 0.76 | TENOR CAPITAL MANAGEMENT Co., WHITEBOX ADVISORS LLC, Polar Asset Management Partn |
+| C2 | 338 | 0.91 | Dodge & Cox, VAN ECK ASSOCIATES CORP, STATE FARM MUTUAL AUTOMOBILE, Boston Partners |
+| C6 | 33 | 0.79 | BAILLIE GIFFORD & CO, EAGLE CAPITAL MANAGEMENT LLC, Situational Awareness LP, Value Aligned Research Advis |
+| C7 | 29 | 0.98 | Alphabet Inc., Valor Management LLC, BAMCO INC /NY/, NVIDIA CORP |
+| C0 | 27 | 0.87 |  LILLY ENDOWMENT INC, Evelyn Partners Group Ltd, INVESTOR AB, RTW INVESTMENTS, LP |
+| noise | 25 | 0.80 | ALPS ADVISORS INC, H&H International Investment, APG Asset Management US Inc., CENTERSQUARE INVESTMENT MANA |
+| C5 | 23 | 0.77 | TCI FUND MANAGEMENT LTD,  MASTERCARD FOUNDATION ASSET, PineStone Asset Management I, Soroban Capital Partners LP |
+| C4 | 12 | 0.74 | WCM INVESTMENT MANAGEMENT, L, Rubric Capital Management LP, Carlyle Group Inc., PointState Capital LP |
+| C3 | 6 | 0.75 | TENOR CAPITAL MANAGEMENT Co., WHITEBOX ADVISORS LLC, Polar Asset Management Partn, HIGHBRIDGE CAPITAL MANAGEMEN |
 
 ## Method comparison and metrics over time
 

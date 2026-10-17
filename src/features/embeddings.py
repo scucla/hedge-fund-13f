@@ -37,8 +37,13 @@ only q-1's (already aligned) frame.
 Background: for 2025Q3+ the SEC bulk data has every filer. The BACKGROUND_N
 largest long books with active share >= BG_MIN_ACTIVE_SHARE (vs the seed
 benchmark; the seed funds' 10th percentile is ~0.71) are projected for the map.
-The active-share screen removes the banks, index and wealth managers that top a
-pure size ranking.
+The active-share screen removes the banks and index managers that top a pure
+size ranking. It does not remove wealth platforms: their ETFs and funds aren't in
+the stock benchmark, so an ETF-heavy book looks "active". A second screen drops
+books with more than BG_MAX_ETF_SHARE in ETFs, closed-end and mutual funds
+(`security_master.security_type2 = 'Mutual Fund'`). Seed funds hold ETFs too,
+mostly as hedges (2025Q3+: median 3%, 90th percentile 21%, 95th 27%), so the cap
+sits inside the seed range rather than at zero.
 
 Writes `fund_embeddings`, `nmf_themes`, `embedding_drift`.
 """
@@ -63,6 +68,7 @@ ASOF_DAYS = 60
 BACKGROUND_N = 500
 BG_MIN_ACTIVE_SHARE = 0.7
 BG_MIN_LONG_VALUE = 1e8
+BG_MAX_ETF_SHARE = 0.25
 BG_FIRST_QUARTER = "2025Q3"
 SEED = 0
 
@@ -116,15 +122,18 @@ def background_books(con) -> pl.DataFrame:
         keymap AS (SELECT cusip, any_value({ISSUER_KEY}) AS issuer_key FROM positions GROUP BY cusip),
         h AS (
             SELECT o.cik, any_value(o.quarter) AS quarter, any_value(o.known_at) AS known_at,
-                   coalesce(k.issuer_key, h.cusip) AS issuer_key, sum(h.value_usd) AS v
+                   coalesce(k.issuer_key, h.cusip) AS issuer_key, sum(h.value_usd) AS v,
+                   coalesce(sum(h.value_usd) FILTER (WHERE m.security_type2 = 'Mutual Fund'), 0) AS v_fund
             FROM orig o JOIN filings_db.holdings h USING (accession_number)
             LEFT JOIN keymap k ON k.cusip = h.cusip
+            LEFT JOIN security_master m ON m.cusip = h.cusip
             WHERE o.rk = 1 AND (h.put_call IS NULL OR h.put_call = '') AND h.value_usd > 0
               AND o.cik NOT IN (SELECT cik FROM own)
             GROUP BY o.cik, o.quarter, coalesce(k.issuer_key, h.cusip)
         )
-        SELECT *, v / sum(v) OVER (PARTITION BY cik, quarter) AS w,
-               sum(v) OVER (PARTITION BY cik, quarter) AS long_value
+        SELECT * EXCLUDE (v_fund), v / sum(v) OVER (PARTITION BY cik, quarter) AS w,
+               sum(v) OVER (PARTITION BY cik, quarter) AS long_value,
+               sum(v_fund) OVER (PARTITION BY cik, quarter) / sum(v) OVER (PARTITION BY cik, quarter) AS etf_share
         FROM h
     """)
     return con.execute(f"""
@@ -142,8 +151,9 @@ def background_books(con) -> pl.DataFrame:
         pick AS (
             SELECT a.cik, a.quarter, a.active_share,
                    row_number() OVER (PARTITION BY a.quarter ORDER BY v.long_value DESC) AS rk
-            FROM act a JOIN (SELECT DISTINCT cik, quarter, long_value FROM bg_w) v USING (cik, quarter)
+            FROM act a JOIN (SELECT DISTINCT cik, quarter, long_value, etf_share FROM bg_w) v USING (cik, quarter)
             WHERE a.active_share >= {BG_MIN_ACTIVE_SHARE} AND v.long_value >= {BG_MIN_LONG_VALUE}
+              AND v.etf_share <= {BG_MAX_ETF_SHARE}
         )
         SELECT 'bg_' || w.cik::VARCHAR AS fund_id, 'background' AS cohort, w.quarter, w.known_at,
                w.issuer_key, w.w

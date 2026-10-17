@@ -190,3 +190,35 @@ def test_crowding_tables(m5):
     assert scalar(m5, "SELECT count(*) FROM crowding_stocks WHERE cusip IS NULL OR ret IS NULL") == 0
     assert scalar(m5, "SELECT count(DISTINCT episode) FROM crowding_stocks") == len(cr.EPISODES)
     assert scalar(m5, "SELECT count(*) FROM cluster_overlap WHERE within < 0 OR within > 1 OR across > within") == 0
+
+
+def test_background_filers_pass_the_etf_cap(m5):
+    from src.securities.db import FILINGS_DB_PATH
+
+    m5.execute(f"ATTACH IF NOT EXISTS '{FILINGS_DB_PATH}' AS filings_db (READ_ONLY)")
+    bg = emb.background_books(m5)
+    assert bg.group_by("quarter").agg(pl.col("fund_id").n_unique())["fund_id"].max() <= emb.BACKGROUND_N
+    # a filer can pass the screen in one quarter and fail it in another: match on both
+    shares = m5.execute("""SELECT max(w.etf_share) FROM bg_w w
+                           JOIN (SELECT DISTINCT fund_id, quarter FROM fund_embeddings WHERE cohort = 'background') e
+                             ON e.fund_id = 'bg_' || w.cik::VARCHAR AND e.quarter = w.quarter""").fetchone()[0]
+    assert shares <= emb.BG_MAX_ETF_SHARE
+
+
+def test_crowding_floor_raises_the_bar():
+    """A higher conviction floor can only remove holders, never add crowded names."""
+    clusters = {"f1": 0, "f2": 0, "f3": 0}
+    book = pl.DataFrame({"fund_id": ["f1", "f2", "f3"], "issuer_key": ["A"] * 3, "w": [0.006, 0.015, 0.03]})
+    n = [cr.crowding_measures(book, clusters, f)["n_holders"][0] for f in [0.005, 0.01, 0.02]]
+    assert n == [3, 2, 1]
+    assert cr.crowding_measures(book, clusters, 0.005)["crowded"][0]
+    assert not cr.crowding_measures(book, clusters, 0.01)["crowded"][0]
+
+
+def test_crowding_sensitivity_table(m5):
+    if not table_exists(m5, "crowding_sensitivity"):
+        pytest.skip("run src.models.crowding")
+    df = m5.execute("SELECT episode, floor, n_crowded FROM crowding_sensitivity ORDER BY episode, floor").pl()
+    assert df.height == len(cr.EPISODES) * len(cr.SENSITIVITY_FLOORS)
+    for _, g in df.group_by("episode"):
+        assert g.sort("floor")["n_crowded"].to_list() == sorted(g["n_crowded"], reverse=True)

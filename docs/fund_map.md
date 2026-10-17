@@ -14,14 +14,15 @@ The fund2vec map for 2026Q2 recovers the industry's main structure from holdings
   (C3: Glazer, HBK, Pentwater, Water Island, Westchester; every one of the five holds EA,
   WBD, ROKU and TECH, all pending deals) are the clearest clusters in every quarter.
   Their nearest outsiders among the background filers also make sense: RTW near
-  healthcare, and Tenor, Whitebox and Polar near merger arb.
+  healthcare, and Tenor, Whitebox, Polar and Highbridge near merger arb.
 - **The Tiger family splits in two.** C6 (Coatue, Tiger Global, Altimeter, Whale Rock,
   Light Street, Maverick, plus Appaloosa) all hold TSM, AMZN, NVDA and GOOGL. C7 (D1,
   Dragoneer, Atreides) is set apart by private-to-public stakes. Baillie Gifford and
   Situational Awareness are their nearest outside neighbours.
 - **Multi-managers and quants are one cluster (C2, 17 funds).** Their books are broad and
   close to the market, so holdings can't tell Millennium from Two Sigma. That is a limit
-  of 13F data, not of the method, and it is where ~390 of the 500 background filers land.
+  of 13F data, not of the method. It is also where 338 of the 500 background filers land,
+  mostly diversified long-only managers (Dodge & Cox, Boston Partners, State Farm).
 - **Activists and concentrated value funds are mostly noise** (22 of 73 funds in 2026Q2).
   This is correct rather than a failure: a 10-stock activist book shares almost nothing
   with any other fund. HDBSCAN says so, where k-means would force each one into a group.
@@ -56,6 +57,28 @@ genuine out-of-sample check:
 **Definition.** A name is **crowded** if at least 3 funds of one cluster, and at least half
 of the cluster's members, each hold it at ≥1% of their book. The 1% floor matters: without
 it, the multi-manager cluster "crowds" 1,700 names it holds at 0.05% each.
+
+**Sensitivity to the floor.** The 1% floor is the main one; 0.5% and 2% are shown for
+comparison. "vs size" = mean return minus the median of the stock's size quintile; the
+regression coefficient on `crowded` controls for log(1 + holders), size, beta and momentum.
+
+| episode | floor | crowded names | crowded return | vs size, mean | vs size, median | regression | t |
+|---|---|---|---|---|---|---|---|
+| COVID | 0.5% | 20 | −11% | +16% | +25% | +13% | 1.8 |
+| COVID | **1%** | **13** | **−7%** | **+20%** | **+25%** | **+11%** | **1.5** |
+| COVID | 2% | 9 | −13% | +16% | +24% | +9% | 1.0 |
+| growth unwind | 0.5% | 25 | −30% | −11% | −3% | −15% | −1.9 |
+| growth unwind | **1%** | **18** | **−38%** | **−20%** | **−28%** | **−23%** | **−2.6** |
+| growth unwind | 2% | 7 | −47% | −29% | −36% | −13% | −1.3 |
+
+- **The sign holds at every floor.** Crowded names did better than size peers in COVID and
+  worse in the growth unwind.
+- **A higher floor isolates the deeper losses in the unwind.** Raising the floor leaves fewer,
+  more concentrated names, and their losses get deeper (−11% → −20% → −29% vs size).
+- **Significance is highest at 1%.** With only 7 names at 2%, the regression loses power
+  (t = −1.3). At 0.5%, broader names that held up dilute the effect.
+- **Conclusion:** the direction doesn't depend on the floor; the significance does, and is
+  strongest at the 1% chosen in advance.
 
 **COVID crash (2019Q4 books, 2020Q1 returns): crowding didn't hurt.**
 - Only 13 names were crowded. They beat stocks of the same size by about +20% (mean);
@@ -96,9 +119,11 @@ sample is now, in 2025–2026, driven by AI mega-caps.
   clusters are underdescribed and nobody's hedges show.
 - **Returns start at quarter end,** not the filing date. This is a description of the funds'
   actual exposure, not a tradable signal; that test is Task D.
-- **The background screen is imperfect.** Selecting by active share still admits wealth
-  platforms whose ETF holdings count as "active" against a stock benchmark (e.g. LPL,
-  Envestnet). They only affect the grey points.
+- **Background screen.** Background filers must have active share ≥ 0.7 and at most 25% of
+  their book in ETFs and funds. The ETF cap removes wealth platforms (e.g. LPL, Envestnet)
+  whose ETFs looked "active" against a stock benchmark. 25% sits between the seed funds'
+  own 90th and 95th percentiles (they hold ETFs as hedges). The background is display-only:
+  the seed clusters and metrics are identical with or without it.
 
 ## What this feeds next
 
