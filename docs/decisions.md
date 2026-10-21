@@ -476,3 +476,4 @@ Committed before any 2023+ number was computed. The test run (`clone_best test`)
   - Every entry is after the fund's filing and after the selection date.
   - Holdings come from that filing's book.
   - No name is bought after its delisting.
+- **2023+ result (one run, after the rules commit `5aed44c`):** 27.5% a year at 10 bp (27.1% at 20 bp) vs SPY 21.9%. Sharpe 1.09 vs 1.10, beta 1.16. FF6 alpha +1.5% (t = 0.3); alpha vs SPY +3.4% (t = 0.9); vs the equal-weight benchmark +11.1% (t = 2.7, a size/growth gap, as in Milestone 7). Audit: 0 violations over 33 selections and 329 entries. Report: `docs/clone_strategy.md`.

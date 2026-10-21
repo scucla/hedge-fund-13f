@@ -112,6 +112,10 @@ and I'd rather report it than tune until something wins.
 
 The backtest asked whether copying pays. A direct event study asks when the market learns. I timed 290,724 new positions by the second each 13F was accepted on EDGAR (from the filing headers: the submissions API's timestamps turned out to be shifted twice by the UTC offset for about half the filings checked). Nothing happens before disclosure. On the first two trading days, new positions beat SPY by +0.4% fund-weighted (t = 4.0), with a median of zero: a few stocks react, mostly activist and growth or healthcare picks. Then the excess fades and turns slightly negative by day 60. The market does read 13Fs, but fast enough that a copycat buying after the filing is left with nothing, which is what the backtest found too.
 
+## Copying the winners
+
+The last test copies the recent winners: the ten seed funds with the best trailing three-year 13F returns, five positions each, bought the day after each fund's own filing. I fixed the rules on 2018–2022 and committed them before running 2023 onward once. A poison test, which makes every not-yet-public return look spectacular, confirmed that the selection never saw the future. The clone beat the S&P 500 (27.5% vs 21.9% a year) with the same Sharpe ratio and a beta of 1.16. Its factor alpha is +1.5% with a t-stat of 0.3, and most of its lead came in one stretch for growth stocks in 2025–26. Past winners kept their factor exposures, and so did the clone. That's a result worth knowing, but it isn't skill you can copy.
+
 ## What I'd do differently
 
 - **Tuning on a single year.** All hyperparameters were chosen on 2022, a rate-hike, growth-unwind year with

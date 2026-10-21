@@ -41,6 +41,10 @@ Details: [`docs/style_classifier.md`](docs/style_classifier.md), [`docs/task_c_r
   - There is no run-up before disclosure.
   - New positions beat SPY by +0.4% (fund-weighted, t = 4.0) over the first two trading days, but the median position doesn't move.
   - Over the next 50 trading days they lag SPY by about 1%. A copycat buying after the filing earns nothing.
+- **Clone the best funds: more return, no alpha** ([`docs/clone_strategy.md`](docs/clone_strategy.md)).
+  - The strategy copies the top 5 positions of the ten funds with the best trailing three-year 13F returns, bought the day after each fund's filing. Its rules were fixed on 2018–2022 and committed before the single 2023+ run.
+  - It returned 27.5% a year against 21.9% for SPY, but with the same Sharpe (1.09 vs 1.10) and a beta of 1.16.
+  - The FF5+momentum alpha is +1.5% (t = 0.3): the winners' growth tilt, not harvestable skill.
 
 ## Live forward test
 
