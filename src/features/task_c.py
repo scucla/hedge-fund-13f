@@ -40,7 +40,9 @@ Task C is about.
 filter only and is never a feature. For a new buy of a stock no seed fund held
 at q (no quarter-q row), the quarter-(q+1) return `ret_q` is used instead.
 
-Tables written: c1_panel, new_buys, task_c_peer_latest (each target fund-quarter's
+Tables written: c1_all (every stock-universe long position, labelled or not: what
+a backtest scores, since whether a fund files next quarter is future information),
+c1_panel (its labelled, non-forced rows: what C1 trains and is scored on), new_buys, task_c_peer_latest (each target fund-quarter's
 visible peer filings), task_c_cluster (its cluster as of pred_date).
 """
 
@@ -263,11 +265,11 @@ def build(con) -> None:
     """)
 
     con.execute(f"""
-        CREATE OR REPLACE TABLE c1_panel AS
+        CREATE OR REPLACE TABLE c1_all AS
         SELECT
             p.fund_id, p.cohort, p.quarter, p.cusip, p.symbol,
             p.known_at AS pred_date,
-            m.known_at AS label_known_at, m.action, m.share_change_next,
+            m.known_at AS label_known_at, m.action, m.share_change_next, m.forced_exit,
             NOT {BAD_RET.replace('ret_source', 'sq.ret_source')} AS ret_clean, sq.ret_source,
             -- own
             p.weight_long, ln(p.rank) AS log_rank, p.top10::INT AS top10, p.is_new::INT AS is_new, p.share_change,
@@ -302,7 +304,7 @@ def build(con) -> None:
                                           - coalesce(pc.cl_n_trim, 0) - coalesce(pc.cl_n_exit, 0) END AS cl_net_buy,
             tc.cl_quarter, tc.cl_known_at AS cluster_known_at
         FROM positions p
-        JOIN position_moves m ON m.fund_id = p.fund_id AND m.cusip = p.cusip AND m.quarter = p.quarter
+        LEFT JOIN position_moves m ON m.fund_id = p.fund_id AND m.cusip = p.cusip AND m.quarter = p.quarter
         JOIN targets t ON t.fund_id = p.fund_id AND t.quarter = p.quarter
         JOIN fund_quarter fq ON fq.fund_id = p.fund_id AND fq.quarter = p.quarter
         LEFT JOIN positions pp ON pp.fund_id = p.fund_id AND pp.cusip = p.cusip AND pp.put_call = ''
@@ -314,7 +316,11 @@ def build(con) -> None:
         LEFT JOIN peer_counts pc ON pc.fund_id = p.fund_id AND pc.quarter = p.quarter AND pc.cusip = p.cusip
         LEFT JOIN peer_fq pf ON pf.fund_id = p.fund_id AND pf.quarter = p.quarter
         LEFT JOIN target_cluster tc ON tc.fund_id = p.fund_id AND tc.quarter = p.quarter
-        WHERE p.put_call = '' AND NOT m.forced_exit AND m.action IS NOT NULL AND sq.cusip IS NOT NULL
+        WHERE p.put_call = '' AND sq.cusip IS NOT NULL
+    """)
+    con.execute("""
+        CREATE OR REPLACE TABLE c1_panel AS
+        SELECT * EXCLUDE (forced_exit) FROM c1_all WHERE action IS NOT NULL AND NOT forced_exit
     """)
 
     # kept for C2 and the leakage audit: who each target fund-quarter could see, and its cluster

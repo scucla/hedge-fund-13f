@@ -266,8 +266,8 @@ The plan assumes about 8–10 hours a week over roughly 12 weeks. Each milestone
 - **Done when:** you have a results table with baselines vs. models on the held-out test years, plus SHAP for C1.
 
 ### Milestone 7: Backtest, Task D (week 10)
-- [ ] Clone and predicted-add strategies, traded on filing dates, with costs.
-- [ ] Sharpe, drawdown and factor alpha with t-stats vs. SPY.
+- [x] Clone and predicted-add strategies, traded on filing dates, with costs.
+- [x] Sharpe, drawdown and factor alpha with t-stats vs. SPY.
 - **Done when:** you have an equity curve and an honest one-paragraph conclusion.
 
 ### Milestone 8: Dashboard and write-up (weeks 11–12)
