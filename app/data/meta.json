@@ -1,0 +1,12 @@
+{
+  "exported": "2026-10-20",
+  "top_n_positions": 200,
+  "books_first_quarter": "2023Q1",
+  "map_first_quarter": "2016Q1",
+  "embedding_method": "fund2vec",
+  "notes": [
+    "Positions capped at each fund's top 200 by weight per quarter; weights are on the full long book.",
+    "C1/C2 predictions are from the models frozen in Milestone 6 (trained on 2018-2022).",
+    "Holdout funds were never clustered, so their C1 cluster features are empty (weaker predictions)."
+  ]
+}

@@ -43,7 +43,8 @@ def c1_scores(con) -> pl.DataFrame:
         *[pl.Series(f"p_{c}", p[:, i]) for i, c in enumerate(CLASSES)])
 
 
-def c2_lists(con) -> pl.DataFrame:
+def c2_lists(con, cohort: str = "seed") -> pl.DataFrame:
+    """Ranked lists for every fund-quarter of `cohort` that filed (the app also scores holdouts)."""
     data = task_c2.load(con, FIRST_QUARTER)
     res = pl.read_parquet(task_c2.RESULTS_PATH)
     als = ast.literal_eval(res.filter((pl.col("method") == "als") & (pl.col("split") == "test"))["params"][0])
@@ -52,7 +53,7 @@ def c2_lists(con) -> pl.DataFrame:
         SELECT DISTINCT t.fund_id, c.cohort, t.quarter, left(t.quarter, 4)::INT * 4 + right(t.quarter, 1)::INT AS q_idx,
                t.pred_date
         FROM task_c_peer_latest t JOIN (SELECT DISTINCT fund_id, cohort FROM positions) c USING (fund_id)
-        WHERE t.quarter >= '{FIRST_QUARTER}' AND c.cohort = 'seed'
+        WHERE t.quarter >= '{FIRST_QUARTER}' AND c.cohort = '{cohort}'
     """).pl()
     targets = fq.with_columns(pl.lit(None, dtype=pl.Utf8).alias("cusip"), pl.lit(True).alias("ret_clean"),
                               pl.lit(None, dtype=pl.Utf8).alias("style"), pl.lit("test").alias("split"),

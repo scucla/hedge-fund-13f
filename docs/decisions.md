@@ -418,3 +418,16 @@ Report: `docs/backtest.md` (conclusion hand-written in `docs/backtest_conclusion
 - **Benchmarks:** SPY (adjusted close) and an equal-weight portfolio of every common/ADR issuer seed funds hold, on the same calendar and costs. Alphas are monthly, compounding the same trading days for strategy, factors and benchmarks, with Newey-West t-stats (3 lags). Self-regressions are left blank.
 - **Two style clusters are mostly cash** (discretionary 32 of 35 quarters, value 23 of 35: no cluster with that majority style existed). They are shown separately, not in the main tables.
 - **Result:** no strategy earned a significant FF5 + momentum alpha. Consensus 9.3% vs SPY 14.5% (2018+); growth clone ≈ SPY with beta 1.18; frozen C2-ALS 24.1% vs SPY 21.9% over the 2023+ test years (alpha t = 0.9); C1 adds 16.5%. The re-entry list, the best C2 predictor, was the worst portfolio. Costs of 10 vs 20 bp change little (at most 0.8 pp a year).
+
+## 2026-10-20: Milestone 8 — Streamlit app, README, write-up
+
+App: `app/streamlit_app.py` (fund explorer, backtest, about). Snapshot: `src/app_export.py` → `app/data/` (committed). Write-up: `docs/writeup.md`.
+
+- **The app reads only a parquet snapshot**, because `data/` is gitignored and Community Cloud can't see the DuckDB database. Its dependencies are Streamlit, Polars, PyArrow, Plotly and NumPy, pinned in `app/requirements.txt`. The deploy doesn't install LightGBM, gensim or `src/`.
+- **Top 200 positions per fund-quarter (owner's call).** Multi-managers hold thousands, and the app never shows them all. Weights stay computed on the full long book, so a capped book adds up to under 100% (as low as 45%). The About page says so. Total snapshot: 4.6 MB, budget 20 MB, enforced by the export and a test. Committed once, no Git LFS (owner's call): each re-export adds its size to history.
+- **Books and predictions from 2023Q1, the test years:** the app shows frozen-model predictions next to what the next filing showed. Fingerprints, neighbours and the map go back to 2016.
+- **UMAP coordinates were not stored in Milestone 5,** so the export recomputes them per quarter with the same `clustering.umap_layout`: fitted on seed funds; holdout and background projected; projected books under 50% vocabulary coverage hidden, as in figure 12. UMAP is refitted each quarter, so map positions are not comparable across quarters (stated in the app).
+- **Holdout funds get C1/C2 predictions too,** from the saved frozen booster and the same ALS settings. Their cluster features are empty, which the app flags (Milestone 6 showed this makes them slightly worse).
+- **The investment and beta tilts come from `fund_quarter`,** because `fund_fingerprint` has only four tilts. The export now fails on a missing column instead of dropping it silently (the first export did).
+- **No price series in the snapshot**: Yahoo data can't be redistributed. Only derived backtest returns ship, and a test checks for price columns.
+- **Demo GIF not recorded:** the Chrome extension wasn't connected when the app ran locally. The README has a placeholder.
