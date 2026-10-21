@@ -1,3 +1,5 @@
+**Live app:** https://reverse-engineer-hedge-funds.streamlit.app/ (free hosting: it sleeps when idle and takes about 30 seconds to wake)
+
 # Reverse-engineer a hedge fund
 
 Hedge funds publish their long US stock positions every quarter in SEC 13F filings, 45 days late.
@@ -8,7 +10,7 @@ It then asks whether any of it makes money once you trade only on what was publi
 
 *fund2vec embeddings of each fund's book, 2026Q2, UMAP fitted on the 77 seed funds, coloured by HDBSCAN cluster; holdout funds and large background filers projected in. Reading: [`docs/fund_map.md`](docs/fund_map.md).*
 
-**Demo:** _GIF to come; run the app locally with the command below._ <!-- docs/figures/demo.gif -->
+**Demo:** _GIF to come; meanwhile try the [live app](https://reverse-engineer-hedge-funds.streamlit.app/) or run it locally with the command below._ <!-- docs/figures/demo.gif -->
 
 ## Results
 
