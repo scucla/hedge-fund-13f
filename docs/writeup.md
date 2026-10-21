@@ -108,6 +108,10 @@ C1 predicted adds lagged it. The re-entry list, the best *predictor* of what fun
 40 test months, none of it is distinguishable from noise. That is the standard finding after the 45-day lag,
 and I'd rather report it than tune until something wins.
 
+## Is the news priced in?
+
+The backtest asked whether copying pays. A direct event study asks when the market learns. I timed 290,724 new positions by the second each 13F was accepted on EDGAR (from the filing headers: the submissions API's timestamps turned out to be shifted twice by the UTC offset for about half the filings checked). Nothing happens before disclosure. On the first two trading days, new positions beat SPY by +0.4% fund-weighted (t = 4.0), with a median of zero: a few stocks react, mostly activist and growth or healthcare picks. Then the excess fades and turns slightly negative by day 60. The market does read 13Fs, but fast enough that a copycat buying after the filing is left with nothing, which is what the backtest found too.
+
 ## What I'd do differently
 
 - **Tuning on a single year.** All hyperparameters were chosen on 2022, a rate-hike, growth-unwind year with

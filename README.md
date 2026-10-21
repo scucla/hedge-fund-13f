@@ -35,6 +35,13 @@ Takeaways:
 
 Details: [`docs/style_classifier.md`](docs/style_classifier.md), [`docs/task_c_results.md`](docs/task_c_results.md), [`docs/backtest.md`](docs/backtest.md). The story of the decisions, the leaks caught and what didn't work: [`docs/writeup.md`](docs/writeup.md). Every design choice: [`docs/decisions.md`](docs/decisions.md).
 
+## Further analyses
+
+- **Is 13F news priced in? Mostly yes** ([`docs/event_study.md`](docs/event_study.md)). The study covers 290,724 new positions, timed by each filing's EDGAR acceptance time.
+  - There is no run-up before disclosure.
+  - New positions beat SPY by +0.4% (fund-weighted, t = 4.0) over the first two trading days, but the median position doesn't move.
+  - Over the next 50 trading days they lag SPY by about 1%. A copycat buying after the filing earns nothing.
+
 ## Live forward test
 
 Each quarter the frozen models (trained on 2018–2022, never retuned) predict every seed fund's next moves from its newest 13F filing. The forecast is committed and tagged before the next filings come out, then graded against them: [live track record](https://reverse-engineer-hedge-funds.streamlit.app/), `predictions/scorecard.csv`.
