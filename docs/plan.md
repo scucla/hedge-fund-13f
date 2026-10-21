@@ -221,28 +221,28 @@ hedge-fund-13f/
 The plan assumes about 8–10 hours a week over roughly 12 weeks. Each milestone ends with something you could show someone. If time runs short, **milestones 1–5 plus the README are already a complete project**; the rest makes it excellent.
 
 ### Milestone 0: Setup and reading (week 1)
-- [ ] Create the GitHub repo, environment (`uv` or conda) and folder layout above.
-- [ ] Skim the SEC's 13F FAQ and the 13F data set README, and read the Cremers & Petajisto and Cohen-Polk-Silli papers (abstract, intro, main tables).
-- [ ] Pick your seed list of ~100 funds and record their CIKs in `seed_funds.csv`.
+- [x] Create the GitHub repo, environment (`uv` or conda) and folder layout above.
+- [x] Skim the SEC's 13F FAQ and the 13F data set README, and read the Cremers & Petajisto and Cohen-Polk-Silli papers (abstract, intro, main tables).
+- [x] Pick your seed list of ~100 funds and record their CIKs in `seed_funds.csv`.
 - **Done when:** the repo exists and you can explain 13F limits in two minutes.
 
 ### Milestone 1: Ingest holdings (weeks 1–2)
-- [ ] Download the SEC 13F quarterly data sets from 2014 onward.
-- [ ] Load INFOTABLE + SUBMISSION + COVERPAGE into DuckDB; keep 13F-HR, handle 13F-HR/A (restatement vs. new holdings).
-- [ ] Fix the thousands-vs-dollars unit change at 2023.
-- [ ] Write data-quality tests.
+- [x] Download the SEC 13F quarterly data sets from 2014 onward.
+- [x] Load INFOTABLE + SUBMISSION + COVERPAGE into DuckDB; keep 13F-HR, handle 13F-HR/A (restatement vs. new holdings).
+- [x] Fix the thousands-vs-dollars unit change at 2023.
+- [x] Write data-quality tests.
 - **Done when:** you can query "Pershing Square's holdings in Q2 2024" and the numbers match what WhaleWisdom or the filing shows.
 
 ### Milestone 2: Securities master, prices and fundamentals (weeks 2–3)
-- [ ] Map CUSIPs to tickers (13(f) list + OpenFIGI, cached locally). Track your match rate by portfolio value; aim for >95%.
-- [ ] Pull daily prices and compute quarterly returns; pull fundamentals from XBRL; download Fama-French factors.
-- [ ] Build point-in-time stock characteristics (size, value, momentum, profitability, investment, beta, volatility, sector).
+- [x] Map CUSIPs to tickers (13(f) list + OpenFIGI, cached locally). Track your match rate by portfolio value; aim for >95%.
+- [x] Pull daily prices and compute quarterly returns; pull fundamentals from XBRL; download Fama-French factors.
+- [x] Build point-in-time stock characteristics (size, value, momentum, profitability, investment, beta, volatility, sector).
 - **Done when:** you have a `stock_quarter` table with characteristics and next-quarter returns.
 
 ### Milestone 3: Feature panel and EDA (weeks 3–4)
-- [ ] Build the fund × stock × quarter and fund × quarter feature tables (§4).
-- [ ] Define the hedge fund universe (seed list + heuristics).
-- [ ] Do EDA: distribution of position counts, turnover, the most-crowded stocks over time, and a fund's portfolio over 10 years.
+- [x] Build the fund × stock × quarter and fund × quarter feature tables (§4).
+- [x] Define the hedge fund universe (seed list + heuristics).
+- [x] Do EDA: distribution of position counts, turnover, the most-crowded stocks over time, and a fund's portfolio over 10 years.
 - **Done when:** you have 3–4 clean charts you'd put in the README.
 
 ### Milestone 4: Strategy fingerprint, Task A (week 5)
