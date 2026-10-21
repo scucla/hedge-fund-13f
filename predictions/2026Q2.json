@@ -1,0 +1,28 @@
+{
+  "forecast_quarter": "2026Q2",
+  "predicts": "moves revealed by the seed funds' 2026Q3 13F filings",
+  "created_utc": "2026-10-21T08:36:54+00:00",
+  "code_commit": "158a15dfb467b14ea6d4528aa7dca803ee640345",
+  "model_sha256": "776d822358485c760acef8989f655cb6581323a57ad5557d4959a6c22668b349",
+  "c2_settings": {
+    "als": {
+      "depth": 4,
+      "factors": 64,
+      "regularization": 0.1,
+      "alpha": 10.0
+    },
+    "reentry": {}
+  },
+  "data": {
+    "seed_funds_filed": 73,
+    "latest_filing_used": "2026-08-17",
+    "c1_positions": 41765,
+    "c1_funds": 73,
+    "c2_funds": 74
+  },
+  "files": {
+    "2026Q2_c1.csv.gz": "66f6d3d9138fae395577435f66bdcd9c146c33aeae37788f968277052973b57f",
+    "2026Q2_c2.csv.gz": "adc047bd567fc9d0898d891a4cb64755bfa9a8ff4b69bc9f1e2e252c2f862818"
+  },
+  "grading_rule": "a fund is graded only if its next filing is dated strictly after the day this file was first committed to git; forced exits (acquisitions, performance delistings) are dropped"
+}
