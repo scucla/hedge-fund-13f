@@ -272,7 +272,7 @@ The plan assumes about 8–10 hours a week over roughly 12 weeks. Each milestone
 
 ### Milestone 8: Dashboard and write-up (weeks 11–12)
 - [x] Streamlit app: search a fund → fingerprint radar, nearest-neighbor funds, cluster on the UMAP map, predicted next moves, and recent history.
-- [ ] README with the pitch, data limitations, a results table, figures and a 30-second demo GIF.
+- [x] README with the pitch, data limitations, a results table, figures and a 30-second demo GIF.
 - [x] A 1,500-word blog post or PDF write-up on your decisions and what didn't work.
 - **Done when:** a recruiter can understand it in 60 seconds and a quant can poke at it for 30 minutes.
 

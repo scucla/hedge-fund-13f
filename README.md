@@ -10,7 +10,9 @@ It then asks whether any of it makes money once you trade only on what was publi
 
 *fund2vec embeddings of each fund's book, 2026Q2, UMAP fitted on the 77 seed funds, coloured by HDBSCAN cluster; holdout funds and large background filers projected in. Reading: [`docs/fund_map.md`](docs/fund_map.md).*
 
-**Demo:** _GIF to come; meanwhile try the [live app](https://reverse-engineer-hedge-funds.streamlit.app/) or run it locally with the command below._ <!-- docs/figures/demo.gif -->
+![Demo: fund explorer, map, predicted moves and backtest](docs/figures/demo.gif)
+
+*26-second tour of the [live app](https://reverse-engineer-hedge-funds.streamlit.app/): a fund's fingerprint, nearest funds and place on the map, its predicted next moves, then the backtest.*
 
 ## Results
 
