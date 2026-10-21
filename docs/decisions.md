@@ -459,3 +459,20 @@ One command per quarter, `uv run python -m src.live.quarter <q>`: extend the pip
 - **Winsorizing at 0.5% / 99.5% within each window, chosen after seeing the data.** Yahoo has unit glitches on thinly traded OTC tickers (BIQIF "+90,000%" in [+11,+60]). They flipped the event-weighted long-window mean from −0.7% to +1.1% while the median stayed at −0.7%. The raw table stays in the report.
 - **Survivorship is the main limit.** 29% of events have no daily prices, and 60% of those stocks later left the exchange (vs 0.4% of priced ones). `delisting_events` was built only for unpriced stocks, so the delisting adjustment barely applies to the priced sample.
 - **Result:** no pre-disclosure drift; days 0–1: +0.42% fund-weighted (t = 4.0), +0.17% event-weighted (t = 1.8), median 0; days +11 to +60: −0.7% to −1.25%. Priced in by the time a copycat can act on the close.
+
+## 2026-10-21: Clone-the-best-funds strategy, rules fixed before the 2023+ run (`src/backtest/clone_best.py`)
+
+Committed before any 2023+ number was computed. The test run (`clone_best test`) comes in the next commit.
+
+- **Owner's rules:** top 10 funds by trailing 3-year holdings-implied return; each one's 5 largest positions, equal-weighted, bought at the next close after that fund's own filing; 10 and 20 bp per side; FF5 + momentum alpha with Newey-West t; rules fixed on 2018–2022 and only 2023+ reported; **idle cash earns the Fama-French daily risk-free rate** (forward-filled after the factor data ends in 2026-08).
+- **Selection (my choices, fixed now):** at each quarter end, the 12 quarters ending one quarter earlier. 13F-implied returns for the quarter just ended only exist once its filings are out, about 45 days later. Each quarter's return is the book's value-weighted return over the next quarter, renormalised over stocks whose return is known by the selection date. Eligible funds need all 12 books and at least 50% of each book's weight with a known return. Seed funds only. Ties go to `fund_id`.
+- **Sleeve:** the 5 largest common/ADR positions in the fund's quarter-q filing, equal-weighted. Names delisted on or before the trade date are skipped (as in Milestone 7).
+- **Slots:** 10 slots, each compounding on its own with no rebalancing across slots. A fund selected again keeps its slot and rebalances it at its new filing. New funds take freed slots in rank order. A slot keeps its old sleeve, drifting, until the new fund's filing is bought. A fund that doesn't file before the next selection leaves its slot to the next cycle. Slots start in cash.
+- **Returns and costs:** the Milestone 7 engine (Yahoo daily, else filled quarterly returns spread over the quarter, cash after delisting). Costs are charged on each slot's traded weight times its value.
+- **Test window:** the same as Milestone 7's 2023+ results, returns after 2023-05-16, compared with SPY, the equal-weight benchmark and the existing strategies over identical days.
+- **What I saw on 2018–2022 (dev):** mechanics only, plus the growth of $1 (1.213 at 10 bp, about 4% a year from April 2018 to December 2022). Every cycle had 10 eligible funds; 7–9 carried over each cycle; 179 of 180 sleeves had 5 names (one fund held a single stock); one-way turnover was about 2 times a year; entries came a median 46 days after quarter end. No rule was changed after seeing these.
+- **Leakage audit (in the module, all zero on dev):**
+  - **Poison test:** returns not yet known by the selection date are set to +1000% and late books weighted ×100, and the same funds must be chosen.
+  - Every entry is after the fund's filing and after the selection date.
+  - Holdings come from that filing's book.
+  - No name is bought after its delisting.
