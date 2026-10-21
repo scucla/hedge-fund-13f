@@ -420,15 +420,9 @@ def main_select() -> None:
     print(f"chose {choice['method']}; wrote {CHOICE_PATH}")
 
 
-def main() -> None:
-    if not CHOICE_PATH.exists():
-        sys.exit(f"{CHOICE_PATH} missing: run `python -m src.models.clustering select` first")
-    choice = json.loads(CHOICE_PATH.read_text())
-    method = choice["method"]
-    con = db.connect()
-    con.execute("SET enable_progress_bar = false")
-    books_all = emb.load_books(con)
-    books = books_all.filter(pl.col("cohort") == "seed")
+def build_tables(con) -> tuple[pl.DataFrame, pl.DataFrame]:
+    """Write fund_clusters and cluster_metrics (no figures or report: the forward test uses this)."""
+    books = emb.load_books(con).filter(pl.col("cohort") == "seed")
     quarters = [q for q in db.QUARTERS if q >= FIRST_QUARTER]
     assign, metrics = run(con, books, quarters, db.LAST_QUARTER)
     known = con.execute("""SELECT method, fund_id, quarter, known_at FROM fund_embeddings WHERE cohort = 'seed'""").pl()
@@ -440,6 +434,18 @@ def main() -> None:
         con.register("df", df.to_arrow())
         con.execute(f"CREATE OR REPLACE TABLE {name} AS SELECT * FROM df")
         con.unregister("df")
+    return assign, metrics
+
+
+def main() -> None:
+    if not CHOICE_PATH.exists():
+        sys.exit(f"{CHOICE_PATH} missing: run `python -m src.models.clustering select` first")
+    choice = json.loads(CHOICE_PATH.read_text())
+    method = choice["method"]
+    con = db.connect()
+    con.execute("SET enable_progress_bar = false")
+    books_all = emb.load_books(con)
+    _, metrics = build_tables(con)
 
     FIG.mkdir(parents=True, exist_ok=True)
     map_clusters = plot_map(con, books_all, method, FIG / "12_fund_map.png")

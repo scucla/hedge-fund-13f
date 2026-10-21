@@ -43,30 +43,36 @@ def c1_scores(con) -> pl.DataFrame:
         *[pl.Series(f"p_{c}", p[:, i]) for i, c in enumerate(CLASSES)])
 
 
-def c2_lists(con, cohort: str = "seed") -> pl.DataFrame:
-    """Ranked lists for every fund-quarter of `cohort` that filed (the app also scores holdouts)."""
-    data = task_c2.load(con, FIRST_QUARTER)
-    res = pl.read_parquet(task_c2.RESULTS_PATH)
-    als = ast.literal_eval(res.filter((pl.col("method") == "als") & (pl.col("split") == "test"))["params"][0])
+def c2_lists(con, cohort: str = "seed", quarter: str | None = None, methods: dict | None = None,
+             depth: int = LIST_DEPTH) -> pl.DataFrame:
+    """Ranked lists for every fund-quarter of `cohort` that filed (the app also scores holdouts),
+    from FIRST_QUARTER on or for one `quarter` (the forward test). `methods` maps method -> settings;
+    by default ALS with the Milestone 6 choice, and re-entry."""
+    first = quarter or FIRST_QUARTER
+    data = task_c2.load(con, first)
+    if methods is None:
+        res = pl.read_parquet(task_c2.RESULTS_PATH)
+        methods = {"als": ast.literal_eval(res.filter((pl.col("method") == "als") & (pl.col("split") == "test"))["params"][0]),
+                   "reentry": {}}
     # every seed fund-quarter that filed, with no targets attached
     fq = con.execute(f"""
         SELECT DISTINCT t.fund_id, c.cohort, t.quarter, left(t.quarter, 4)::INT * 4 + right(t.quarter, 1)::INT AS q_idx,
                t.pred_date
         FROM task_c_peer_latest t JOIN (SELECT DISTINCT fund_id, cohort FROM positions) c USING (fund_id)
-        WHERE t.quarter >= '{FIRST_QUARTER}' AND c.cohort = '{cohort}'
+        WHERE t.quarter {'=' if quarter else '>='} '{first}' AND c.cohort = '{cohort}'
     """).pl()
     targets = fq.with_columns(pl.lit(None, dtype=pl.Utf8).alias("cusip"), pl.lit(True).alias("ret_clean"),
                               pl.lit(None, dtype=pl.Utf8).alias("style"), pl.lit("test").alias("split"),
                               pl.lit(None, dtype=pl.Date).alias("label_known_at"))
     d = task_c2.Data(data.books, targets, data.peers, data.clusters)
     out = []
-    for method, params in (("als", als), ("reentry", {})):
+    for method, params in methods.items():
         for quarter, pred_date in targets.select("quarter", "pred_date").unique().sort("quarter", "pred_date").iter_rows():
             recs, audit = task_c2.score_group(d, quarter, pred_date, method, params)
             assert audit["max_input_known_at"] <= pred_date
             for r in recs:
                 out += [{"method": method, "fund_id": r["fund_id"], "quarter": quarter, "pred_date": pred_date,
-                         "cusip": c, "rank": i + 1} for i, c in enumerate(r["ranked"][:LIST_DEPTH])]
+                         "cusip": c, "rank": i + 1} for i, c in enumerate(r["ranked"][:depth])]
     return pl.DataFrame(out)
 
 

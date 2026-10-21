@@ -1,0 +1,98 @@
+{
+  "frozen_on": "2026-10-21",
+  "source_commits": {
+    "milestone_6_models": "5e3637f",
+    "milestone_7_booster": "dd831d1"
+  },
+  "c1": {
+    "variant": "lgbm_full",
+    "sha256": "776d822358485c760acef8989f655cb6581323a57ad5557d4959a6c22668b349",
+    "params": {
+      "num_leaves": 127,
+      "min_child_samples": 1000,
+      "rounds": 248
+    },
+    "features": [
+      "weight_long",
+      "log_rank",
+      "top10",
+      "is_new",
+      "share_change",
+      "share_change_prev",
+      "age_q",
+      "age_censored",
+      "log_value",
+      "unrealized_gain",
+      "log_n_positions",
+      "top10_weight",
+      "hhi",
+      "turnover_clipped",
+      "gross_turnover_clipped",
+      "options_share",
+      "log_long_value",
+      "log_me",
+      "bm",
+      "gp_at",
+      "asset_growth",
+      "mom_12_1",
+      "beta",
+      "vol",
+      "ret_q",
+      "ff12",
+      "ret_since_qend",
+      "prior_exit",
+      "prior_trim",
+      "prior_hold",
+      "prior_add",
+      "prior_n",
+      "last_exit",
+      "last_trim",
+      "last_hold",
+      "last_add",
+      "n_peer_hold",
+      "n_peers_active",
+      "n_peer_new",
+      "n_peer_add",
+      "n_peer_trim",
+      "n_peer_exit",
+      "share_peers_filed_q",
+      "cl_noise",
+      "cl_size",
+      "cl_n_hold",
+      "cl_n_new",
+      "cl_n_add",
+      "cl_n_trim",
+      "cl_n_exit",
+      "cl_frac_hold",
+      "cl_net_buy"
+    ],
+    "classes": [
+      "exit",
+      "trim",
+      "hold",
+      "add"
+    ],
+    "class_prior_trainval": {
+      "exit": 0.209374,
+      "trim": 0.303607,
+      "hold": 0.184811,
+      "add": 0.302208
+    },
+    "fit_frame": "seed funds, 2018Q1-2022Q4 rows, embargoed against the first 2023 prediction date"
+  },
+  "c2": {
+    "methods": {
+      "als": {
+        "depth": 4,
+        "factors": 64,
+        "regularization": 0.1,
+        "alpha": 10.0
+      },
+      "reentry": {}
+    },
+    "top_k": 20,
+    "random_state": 0,
+    "iterations": 15,
+    "tuned_on": "2022 seed fund-quarters, mean NDCG@20"
+  }
+}

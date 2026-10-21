@@ -35,6 +35,16 @@ Takeaways:
 
 Details: [`docs/style_classifier.md`](docs/style_classifier.md), [`docs/task_c_results.md`](docs/task_c_results.md), [`docs/backtest.md`](docs/backtest.md). The story of the decisions, the leaks caught and what didn't work: [`docs/writeup.md`](docs/writeup.md). Every design choice: [`docs/decisions.md`](docs/decisions.md).
 
+## Live forward test
+
+Each quarter the frozen models (trained on 2018–2022, never retuned) predict every seed fund's next moves from its newest 13F filing. The forecast is committed and tagged before the next filings come out, then graded against them: [live track record](https://reverse-engineer-hedge-funds.streamlit.app/), `predictions/scorecard.csv`.
+
+```bash
+uv run python -m src.live.quarter 2026Q3   # after the Sep–Nov 2026 13F data set is out, before 2026-12-31
+```
+
+The command grades the previous forecast, issues the new one, and commits, tags and pushes `predictions/` only. Rules are in [`src/live/quarter.py`](src/live/quarter.py) and [`docs/decisions.md`](docs/decisions.md).
+
 ## Data and its limits
 
 - **Sources:**

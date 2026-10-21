@@ -10,7 +10,10 @@ from src.ingest.load import DB_PATH as FILINGS_DB_PATH
 
 # overridable so a seed-only copy can be built side by side (holdout invariance check)
 DB_PATH = Path(os.environ.get("SECURITIES_DB", "data/processed/securities.duckdb"))
-FIRST_QUARTER, LAST_QUARTER = "2015Q1", "2026Q2"
+# LAST_QUARTER is overridable so the quarterly forward test (src.live.quarter) can
+# extend the pipeline to a newly filed quarter; it must be set before src modules import
+FIRST_QUARTER = "2015Q1"
+LAST_QUARTER = os.environ.get("LAST_QUARTER", "2026Q2")
 
 
 def _quarters(start: str, end: str) -> list[str]:

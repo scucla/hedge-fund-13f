@@ -340,6 +340,106 @@ def backtest_page() -> None:
 """)
 
 
+# --- live track record -----------------------------------------------------------------------
+
+PREDICTIONS = Path(__file__).parent.parent / "predictions"   # committed forecasts, read straight from the repo
+LIVE_MODELS = {"lgbm_full": "Model (frozen LightGBM)", "fund_last_q": "Baseline: fund's last-quarter habits",
+               "fund_prior": "Baseline: fund's long-run habits", "class_prior": "Baseline: average shares",
+               "als": "Model (ALS recommender)", "reentry": "Baseline: re-entry"}
+
+
+def filing_deadline(q: str) -> str:
+    """45 days after quarter end, rolled to Monday if it lands on a weekend."""
+    from datetime import date, timedelta
+    y, n = int(q[:4]), int(q[-1])
+    end = date(y + (n == 4), 1 if n == 4 else 3 * n + 1, 1) - timedelta(days=1)
+    d = end + timedelta(days=45)
+    return str(d + timedelta(days=(7 - d.weekday()) % 7 if d.weekday() >= 5 else 0))
+
+
+def next_q(q: str) -> str:
+    y, n = int(q[:4]), int(q[-1])
+    return f"{y + 1}Q1" if n == 4 else f"{y}Q{n + 1}"
+
+
+@st.cache_data(ttl=3600)
+def forecasts() -> list[dict]:
+    return sorted((json.loads(p.read_text()) for p in PREDICTIONS.glob("*Q?.json")),
+                  key=lambda m: m["forecast_quarter"], reverse=True)
+
+
+@st.cache_data(ttl=3600)
+def scorecard() -> pl.DataFrame | None:
+    path = PREDICTIONS / "scorecard.csv"
+    return pl.read_csv(path) if path.exists() else None
+
+
+def live_page() -> None:
+    st.title("Live track record")
+    st.markdown(f"""
+Every quarter, after the funds' 13F filings come in, the **frozen** models (trained on 2018–2022 and never retuned)
+predict what each seed fund will do by its next filing. The forecast is committed to the public repository and
+tagged before the next filings come out, then graded when they do, against simple baselines saved in the same file.
+A fund that filed before the forecast was committed isn't graded. Code: [`src/live`]({REPO}/tree/main/src/live).
+""")
+    fc = forecasts()
+    if not fc:
+        st.info("No forecast issued yet.")
+        return
+    sc = scorecard()
+    graded = set() if sc is None else set(sc["forecast_quarter"].to_list())
+    rows = [{"From filings of": m["forecast_quarter"],
+             "Graded on filings of": next_q(m["forecast_quarter"]),
+             "Written": m["created_utc"][:10],
+             "Funds": fmt_int(m["data"]["c1_funds"]),
+             "Positions": fmt_int(m["data"]["c1_positions"]),
+             "Status": "graded" if m["forecast_quarter"] in graded else
+                       f"waiting for {next_q(m['forecast_quarter'])} filings (due {filing_deadline(next_q(m['forecast_quarter']))})",
+             "Proof": f"{REPO}/releases/tag/forecast-{m['forecast_quarter']}"} for m in fc]
+    st.subheader("Forecasts issued")
+    st.dataframe(pl.DataFrame(rows), hide_index=True, width="stretch",
+                 column_config={"Proof": st.column_config.LinkColumn("Proof", display_text="git tag")})
+    st.caption("The git tag and commit show when each forecast was published; the forecast's JSON file records the "
+               "SHA-256 of its prediction files and of the frozen model.")
+
+    st.subheader("Scorecard")
+    if sc is None:
+        q = fc[-1]["forecast_quarter"]
+        st.info(f"No grades yet. The first forecast ({q}) is graded once the {next_q(q)} filings (due "
+                f"{filing_deadline(next_q(q))}) appear in the SEC's 13F data set, usually a few weeks later.")
+    else:
+        sub = sc.filter(pl.col("subset") == "all")
+        st.markdown("**Next move on each position** (exit / trim / hold / add)")
+        st.dataframe(table(sub.filter(pl.col("task") == "c1").sort("forecast_quarter", "model"), {
+            "forecast_quarter": ("Forecast", str), "model": ("Predictor", lambda m: LIVE_MODELS.get(m, m)),
+            "rows": ("Positions graded", fmt_int), "funds": ("Funds", fmt_int),
+            "macro_f1": ("Macro-F1", fmt_num), "log_loss": ("Log-loss", fmt_num), "exit_auc": ("Exit AUC", fmt_num),
+            "R_exit": ("Exits caught", fmt_pct), "R_add": ("Adds caught", fmt_pct)}), hide_index=True, width="stretch")
+        st.markdown("**New buys** (top-20 list per fund)")
+        st.dataframe(table(sub.filter(pl.col("task") == "c2").sort("forecast_quarter", "model"), {
+            "forecast_quarter": ("Forecast", str), "model": ("Predictor", lambda m: LIVE_MODELS.get(m, m)),
+            "funds": ("Funds graded", fmt_int), "recall_at_20": ("Recall@20", fmt_pct),
+            "ndcg_at_20": ("NDCG@20", fmt_num), "hit_rate": ("Hit rate", fmt_pct)}), hide_index=True, width="stretch")
+        st.caption("Macro-F1: higher is better (averages how well each of the four moves is caught). Log-loss: lower "
+                   "is better. Exit AUC: 0.5 is a coin flip. In testing (2023–2026) the model scored macro-F1 0.49 "
+                   "vs 0.38 for the best baseline. Recall@20: share of a fund's new buys that were on its list of 20.")
+
+    latest = fc[0]["forecast_quarter"]
+    c1 = pl.read_csv(PREDICTIONS / f"{latest}_c1.csv.gz", schema_overrides={"cusip": pl.Utf8, "symbol": pl.Utf8})
+    funds = load("funds").select("fund_id", "fund_name")
+    big = (c1.filter(pl.col("weight_long") >= 0.02).join(funds, on="fund_id", how="left").with_columns(clean_name()))
+    st.subheader(f"Latest forecast ({latest}): biggest predicted moves")
+    st.caption(f"Positions of at least 2% of a fund's book, by predicted probability; graded against the "
+               f"{next_q(latest)} filings.")
+    cols = {"fund_name": ("Fund", str), "name": ("Stock", str), "symbol": ("Ticker", lambda s: s or MISSING),
+            "weight_long": ("Weight", fmt_pct), "p_exit": ("Exit", fmt_pct), "p_add": ("Add", fmt_pct)}
+    l, r = st.columns(2)
+    l.markdown("**Most likely exits**")
+    l.dataframe(table(big.sort("p_exit", descending=True).head(15), cols), hide_index=True, width="stretch")
+    r.markdown("**Most likely adds**")
+    r.dataframe(table(big.sort("p_add", descending=True).head(15), cols), hide_index=True, width="stretch")
+
+
 # --- about -----------------------------------------------------------------------------------
 
 def about_page() -> None:
@@ -372,5 +472,6 @@ copying them would have paid. Code, method and every design decision: [{REPO}]({
 if __name__ == "__main__":   # streamlit runs the script as __main__; tests import the page functions
     pg = st.navigation([st.Page(fund_page, title="Fund explorer", icon="🔎", default=True),
                         st.Page(backtest_page, title="Backtest", icon="📈"),
+                        st.Page(live_page, title="Live track record", icon="⏱️"),
                         st.Page(about_page, title="About", icon="ℹ️")])
     pg.run()
