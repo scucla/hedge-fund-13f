@@ -116,6 +116,10 @@ The backtest asked whether copying pays. A direct event study asks when the mark
 
 The last test copies the recent winners: the ten seed funds with the best trailing three-year 13F returns, five positions each, bought the day after each fund's own filing. I fixed the rules on 2018–2022 and committed them before running 2023 onward once. A poison test, which makes every not-yet-public return look spectacular, confirmed that the selection never saw the future. The clone beat the S&P 500 (27.5% vs 21.9% a year) with the same Sharpe ratio and a beta of 1.16. Its factor alpha is +1.5% with a t-stat of 0.3, and most of its lead came in one stretch for growth stocks in 2025–26. Past winners kept their factor exposures, and so did the clone. That's a result worth knowing, but it isn't skill you can copy.
 
+## Where the crowd is now
+
+Running the crowding measure on the newest filings (2026Q2) gives a list of names held as conviction positions by many seed funds, concentrated in the same clusters. Amazon tops it with 33 funds, then Alphabet, Nvidia, Meta and TSMC: mega-cap tech held by both the multi-managers and the growth funds. A merger-arbitrage cluster crowds into pending deals (Electronic Arts, Warner Bros. Discovery, Norfolk Southern). History says to read this as a map of correlated exits, not a forecast: crowded names fell harder in the 2021–22 growth unwind but not in the COVID crash.
+
 ## What I'd do differently
 
 - **Tuning on a single year.** All hyperparameters were chosen on 2022, a rate-hike, growth-unwind year with

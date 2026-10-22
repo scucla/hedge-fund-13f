@@ -45,6 +45,7 @@ Details: [`docs/style_classifier.md`](docs/style_classifier.md), [`docs/task_c_r
   - The strategy copies the top 5 positions of the ten funds with the best trailing three-year 13F returns, bought the day after each fund's filing. Its rules were fixed on 2018–2022 and committed before the single 2023+ run.
   - It returned 27.5% a year against 21.9% for SPY, but with the same Sharpe (1.09 vs 1.10) and a beta of 1.16.
   - The FF5+momentum alpha is +1.5% (t = 0.3): the winners' growth tilt, not harvestable skill.
+- **Crowded now** ([`docs/crowding_now.md`](docs/crowding_now.md), app page "Crowded now"). In the 2026Q2 filings (as of 2026-08-17), AMZN, GOOGL, NVDA, META and TSM have the most conviction holders (33 to 17 seed funds each). 15 of the top 20 are crowded inside one cluster, mostly the multi-manager and growth/tech groups, plus a merger-arbitrage cluster in EA, WBD and NSC. In past episodes crowding flagged risk in the 2021–22 growth unwind but not in the COVID crash. The list says where selling would be correlated, not what will fall.
 
 ## Live forward test
 

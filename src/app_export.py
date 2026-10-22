@@ -19,6 +19,8 @@ over SIZE_BUDGET_MB:
                         actually bought the name next quarter
   backtest_daily.parquet, backtest_results.parquet   Milestone 7 outputs
   meta.json             export date, the caps, data notes
+  crowded_now.parquet   written separately by src.analysis.crowding_now (the latest
+                        quarter's top 20 crowded stocks); this export leaves it alone
 
 No price series is exported (Yahoo data can't be redistributed); returns
 appear only as derived backtest series.

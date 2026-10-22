@@ -440,6 +440,43 @@ A fund that filed before the forecast was committed isn't graded. Code: [`src/li
     r.dataframe(table(big.sort("p_add", descending=True).head(15), cols), hide_index=True, width="stretch")
 
 
+# --- crowded now -----------------------------------------------------------------------------
+
+def crowded_page() -> None:
+    c = load("crowded_now").sort("rank")
+    q, as_of = c["quarter"][0], c["as_of"][0]
+    st.title("Crowded now")
+    st.markdown(f"""
+The stocks the most seed funds hold as a **conviction position** (1% or more of their long book) in their **{q}**
+13F filings, as of **{as_of}** (the latest filing or clustering used). A stock is **crowded** when at least 3 of
+its conviction holders come from one fund cluster and they are at least half of that cluster: the funds most likely
+to sell together. ETFs and funds are left out. In the 2021–22 growth unwind, crowded names fell 23% more than
+size-matched peers; in the 2020 COVID crash they didn't.
+[Method]({REPO}/blob/main/docs/crowding_now.md)
+""")
+    chart = c.with_columns(clean_name("issuer_name"),
+                           pl.col("top_cluster_name").str.replace_all("_", " ").alias("Cluster with most holders"),
+                           pl.col("stock").fill_null(pl.col("issuer_key")).alias("Stock"))
+    fig = px.bar(chart.to_pandas(), x="n_holders", y="Stock", color="Cluster with most holders", orientation="h",
+                 hover_data={"issuer_name": True, "max_cluster_n": True}, height=560,
+                 labels={"n_holders": "Conviction holders (seed funds)", "max_cluster_n": "In one cluster",
+                         "issuer_name": "Company"})
+    fig.update_yaxes(categoryorder="array", categoryarray=chart["Stock"].to_list()[::-1], title=None)
+    fig.update_xaxes(autorange=True, rangemode="tozero")
+    fig.update_layout(margin={"t": 10, "b": 10}, legend=LEGEND_BELOW | {"y": -0.12}, showlegend=True)
+    st.plotly_chart(fig, width="stretch")
+    st.dataframe(table(chart, {
+        "rank": ("Rank", fmt_int), "Stock": ("Ticker", str), "issuer_name": ("Company", str),
+        "n_holders": ("Conviction holders", fmt_int), "max_cluster_n": ("In one cluster", fmt_int),
+        "top_cluster_name": ("Cluster", readable), "crowded": ("Crowded", lambda v: "Yes" if v else "No"),
+        "holders_weight": ("Holders' summed weight", lambda v: fmt_num(v, 2)),
+        "top_holders": ("Largest holders (cluster, weight in book)", str)}), hide_index=True, width="stretch")
+    st.caption("Holders' summed weight: 1.00 is one full fund book. Clusters are named by their members' majority "
+               "style label; '#2' marks a second cluster with the same majority style.")
+    pick = st.selectbox("All conviction holders of", chart["Stock"].to_list())
+    st.write(chart.filter(pl.col("Stock") == pick)["holders"][0].replace("; ", "  \n"))
+
+
 # --- about -----------------------------------------------------------------------------------
 
 def about_page() -> None:
@@ -473,5 +510,6 @@ if __name__ == "__main__":   # streamlit runs the script as __main__; tests impo
     pg = st.navigation([st.Page(fund_page, title="Fund explorer", icon="🔎", default=True),
                         st.Page(backtest_page, title="Backtest", icon="📈"),
                         st.Page(live_page, title="Live track record", icon="⏱️"),
+                        st.Page(crowded_page, title="Crowded now", icon="🧲"),
                         st.Page(about_page, title="About", icon="ℹ️")])
     pg.run()

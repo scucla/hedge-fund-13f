@@ -29,6 +29,7 @@ def test_snapshot_is_under_budget():
     ("books", ["fund_id", "quarter", "cusip"]),
     ("newbuys", ["method", "fund_id", "quarter", "cusip"]),
     ("backtest_daily", ["strategy", "date"]),
+    ("crowded_now", ["issuer_key"]),
 ])
 def test_unique_keys_and_no_nulls(name, keys):
     df = load(name)
@@ -70,7 +71,7 @@ def test_no_price_series_exported():
 
 # --- the app renders against the snapshot ------------------------------------------------------
 
-@pytest.mark.parametrize("page", ["fund_page", "backtest_page", "about_page"])
+@pytest.mark.parametrize("page", ["fund_page", "backtest_page", "crowded_page", "about_page"])
 def test_app_page_renders(page):
     from streamlit.testing.v1 import AppTest
     at = AppTest.from_string(f"import sys; sys.path.insert(0, 'app'); import streamlit_app as a; a.{page}()",

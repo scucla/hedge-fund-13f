@@ -477,3 +477,11 @@ Committed before any 2023+ number was computed. The test run (`clone_best test`)
   - Holdings come from that filing's book.
   - No name is bought after its delisting.
 - **2023+ result (one run, after the rules commit `5aed44c`):** 27.5% a year at 10 bp (27.1% at 20 bp) vs SPY 21.9%. Sharpe 1.09 vs 1.10, beta 1.16. FF6 alpha +1.5% (t = 0.3); alpha vs SPY +3.4% (t = 0.9); vs the equal-weight benchmark +11.1% (t = 2.7, a size/growth gap, as in Milestone 7). Audit: 0 violations over 33 selections and 329 entries. Report: `docs/clone_strategy.md`.
+
+## 2026-10-21: Crowded now (`src/analysis/crowding_now.py`, `docs/crowding_now.md`, app page)
+
+- **The same measure as Milestone 5, unchanged** (`crowding.crowding_measures`): a conviction holder is a seed fund with the stock at ≥ 1% of its long book; crowded means ≥ 3 conviction holders from one cluster who are ≥ half of it. Applied to the 2026Q2 point-in-time books and the 2026Q2 clustering. As of 2026-08-17, the latest filing or clustering used.
+- **Ranking:** conviction holders, then the largest count inside one cluster, then the holders' summed weight. **ETFs and funds are excluded from the ranking** (my call, the same reasoning as Milestone 7's strategies: in a 13F they are mostly hedges). Without the exclusion, SPY and IVV would rank 12th and 19th. Weights stay on the full book.
+- **Cluster names** come from the members' majority hand style, with "#2" for a second cluster of the same style and "cluster N" if no member is labelled. The name labels the cluster; membership comes from holdings.
+- **App:** `app/data/crowded_now.parquet` (8 KB) is written by this module, separately from `src.app_export`, so the rest of the snapshot is unchanged; the whole snapshot stays at about 4.6 MB (test budget 20 MB).
+- **Result:** AMZN 33 holders (10 in the multi-manager cluster), GOOGL 25, NVDA 24, META 20, TSM 17, MSFT 16; 15 of the top 20 are crowded. EA, WBD and NSC are crowded inside a merger-arbitrage cluster (pending deals).
